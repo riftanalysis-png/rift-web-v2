@@ -21,7 +21,7 @@ const displayMainChampName = document.querySelector('.champ-badge span');
 const displayMainChampImg = document.querySelector('.champ-badge img');
 const displayMainChampStats = document.querySelector('.card:nth-child(3) p');
 
-// Variável global para o gráfico (para podermos destruí-lo e recriá-lo)
+// Variável global para o gráfico
 let chartInstance = null;
 
 // ==========================================
@@ -30,7 +30,7 @@ let chartInstance = null;
 const mockPlayers = {
     "Zekas#2002": {
         winrate: "58.2%", kda: "4.1 : 1", main: "Zed", mainStats: "42 Partidas (62% WR)",
-        chartData: [ // Agressivo: Muito dano, gold ok
+        chartData: [
             { x: 950, y: 480, r: 28, champ: 'Zed', win: true },
             { x: 800, y: 450, r: 20, champ: 'Yone', win: false },
             { x: 1100, y: 550, r: 35, champ: 'Sylas', win: true }
@@ -38,7 +38,7 @@ const mockPlayers = {
     },
     "han dao#EGC": {
         winrate: "49.5%", kda: "2.8 : 1", main: "LeeSin", mainStats: "30 Partidas (51% WR)",
-        chartData: [ // Jungler: Dano médio, eficiência variável
+        chartData: [
             { x: 500, y: 400, r: 15, champ: 'LeeSin', win: true },
             { x: 450, y: 380, r: 10, champ: 'Viego', win: false },
             { x: 600, y: 450, r: 22, champ: 'Graves', win: true }
@@ -46,7 +46,7 @@ const mockPlayers = {
     },
     "Pilot#br11": {
         winrate: "61.0%", kda: "5.2 : 1", main: "Jhin", mainStats: "55 Partidas (65% WR)",
-        chartData: [ // ADC: Muito Gold, Dano alto
+        chartData: [
             { x: 900, y: 600, r: 30, champ: 'Jhin', win: true },
             { x: 850, y: 550, r: 25, champ: 'Kaisa', win: true },
             { x: 400, y: 300, r: 10, champ: 'Ezreal', win: false }
@@ -54,7 +54,7 @@ const mockPlayers = {
     },
     "Celo#br2": {
         winrate: "52.4%", kda: "3.4 : 1", main: "Thresh", mainStats: "18 Partidas (55% WR)",
-        chartData: [ // Support: Pouco dano, pouco gold, mas ganha
+        chartData: [
             { x: 200, y: 250, r: 15, champ: 'Thresh', win: true },
             { x: 300, y: 280, r: 18, champ: 'Nautilus', win: true },
             { x: 150, y: 200, r: 10, champ: 'Lulu', win: false }
@@ -62,7 +62,7 @@ const mockPlayers = {
     },
     "Gatovisck#愛憎の影": {
         winrate: "45.0%", kda: "1.9 : 1", main: "Yasuo", mainStats: "100 Partidas (40% WR)",
-        chartData: [ // O Yasuo clássico: Dano alto nas derrotas
+        chartData: [
             { x: 800, y: 400, r: 10, champ: 'Yasuo', win: false },
             { x: 850, y: 410, r: 12, champ: 'Yone', win: false },
             { x: 600, y: 500, r: 25, champ: 'Malphite', win: true }
@@ -76,26 +76,49 @@ const suggestedNicks = Object.keys(mockPlayers);
 // 3. LÓGICA DE BUSCA
 // ==========================================
 
-// Mostrar sugestões ao focar
+// 1. Mostrar TUDO ao clicar na caixa (Focus)
 searchInput.addEventListener('focus', () => {
-    renderSuggestions(suggestedNicks);
+    // Se a caixa estiver vazia, mostra todos. Se tiver texto, filtra.
+    const termo = searchInput.value.toLowerCase();
+    if(termo === "") {
+        renderSuggestions(suggestedNicks);
+    } else {
+        const filtrados = suggestedNicks.filter(n => n.toLowerCase().includes(termo));
+        renderSuggestions(filtrados);
+    }
     suggestionsBox.style.display = 'block';
 });
 
-// Esconder ao clicar fora (com um pequeno delay para permitir o clique na sugestão)
+// 2. Filtrar conforme você digita (Input) - ESTE ERA O QUE FALTAVA
+searchInput.addEventListener('input', (e) => {
+    const termo = e.target.value.toLowerCase();
+    
+    const nicksFiltrados = suggestedNicks.filter(nick => 
+        nick.toLowerCase().includes(termo)
+    );
+
+    if (nicksFiltrados.length > 0) {
+        renderSuggestions(nicksFiltrados);
+        suggestionsBox.style.display = 'block';
+    } else {
+        suggestionsBox.style.display = 'none';
+    }
+});
+
+// 3. Esconder ao clicar fora
 document.addEventListener('click', (e) => {
     if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
         suggestionsBox.style.display = 'none';
     }
 });
 
-// Renderizar a lista
+// Renderizar a lista HTML
 function renderSuggestions(list) {
     suggestionsBox.innerHTML = '';
     list.forEach(nick => {
         const div = document.createElement('div');
         div.className = 'suggestion-item';
-        // Separa o Nick da Tag para estilizar
+        
         const [name, tag] = nick.split('#');
         div.innerHTML = `<span>${name}</span><strong style="font-size:0.8rem; color:#666;">#${tag || ''}</strong>`;
         
@@ -108,48 +131,39 @@ function renderSuggestions(list) {
 }
 
 // ==========================================
-// 4. ATUALIZAR DASHBOARD (O CÉREBRO)
+// 4. ATUALIZAR DASHBOARD
 // ==========================================
 function selectPlayer(nick) {
-    // 1. Atualiza o Input
     searchInput.value = nick;
     suggestionsBox.style.display = 'none';
 
-    // 2. Pega os dados do Mock
     const data = mockPlayers[nick];
-    if (!data) return; // Segurança
+    if (!data) return; 
 
-    // 3. Atualiza Textos
     welcomeMsg.innerText = `Análise: ${nick}`;
     displayWinrate.innerText = data.winrate;
     displayKDA.innerText = data.kda;
     
-    // 4. Atualiza Card do Campeão
     displayMainChampName.innerText = data.main;
     displayMainChampImg.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${data.main}.png`;
     displayMainChampStats.innerText = data.mainStats;
 
-    // 5. Atualiza o Gráfico
     updateChart(data.chartData);
 }
 
 // ==========================================
-// 5. LÓGICA DO GRÁFICO (CHART.JS)
+// 5. GRÁFICO (CHART.JS)
 // ==========================================
-
 function updateChart(newData) {
-    // Helper de imagem
     const carregarImg = (nome) => {
         const img = new Image();
         img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${nome}.png`;
         return img;
     };
 
-    // Prepara os dados
     const vitorias = newData.filter(d => d.win).map(d => ({ ...d, image: carregarImg(d.champ) }));
     const derrotas = newData.filter(d => !d.win).map(d => ({ ...d, image: carregarImg(d.champ) }));
 
-    // Se já existe gráfico, atualiza os dados. Se não, cria.
     if (chartInstance) {
         chartInstance.data.datasets[0].data = vitorias;
         chartInstance.data.datasets[1].data = derrotas;
@@ -225,18 +239,14 @@ async function checkSession() {
         userNickDisplay.innerText = nome;
         loadingScreen.style.display = 'none';
 
-        // Carrega dados iniciais (usando o perfil do 'Zekas' como padrão visual ou vazio)
-        // Se o nick do usuario bater com um da lista, carrega o dele
         if (mockPlayers[nick]) {
             selectPlayer(nick);
         } else {
-            // Se não, carrega dados genéricos do Zekas só pra preencher o gráfico
             updateChart(mockPlayers["Zekas#2002"].chartData);
         }
     }
 }
 
-// Logout
 logoutBtn.addEventListener('click', async () => {
     const { error } = await supabaseClient.auth.signOut();
     if (!error) window.location.href = "index.html";
