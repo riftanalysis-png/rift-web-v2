@@ -59,4 +59,15 @@ button:hover { background-color: #00dbaf; }
     border-radius: 8px;
     text-align: center;
 }
+
+.error-text {
+    color: #ff4d4d; /* Vermelho claro para fundo escuro */
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 10px;
+    min-height: 20px; /* Para não pular a tela quando o texto aparecer */
+    display: block;
+}
+
 .kpi-val { font-size: 2rem; color: #00ffcc; font-weight: bold; }
+
