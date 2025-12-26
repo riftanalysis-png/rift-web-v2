@@ -1,6 +1,6 @@
 // --- SUAS CHAVES AQUI ---
-const SUPABASE_URL = "SUA_URL_DO_SUPABASE";
-const SUPABASE_KEY = "SUA_CHAVE_ANON_PUBLICA";
+const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -38,3 +38,4 @@ async function seJaLogadoVaiProDash() {
         window.location.href = "dashboard.html"; // Já tá logado, adianta
     }
 }
+
