@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Rift Analytics</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="dashboard-mode">
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Painel de Controle</h1>
+        <button onclick="sair()" style="width: auto; background: #ff4444;">SAIR</button>
+    </div>
+
+    <select id="playerSelect">
+        <option>Carregando jogadores...</option>
+    </select>
+
+    <div class="kpi-grid">
+        <div class="kpi-box">
+            <span>Win Rate</span>
+            <div class="kpi-val" id="wr">--%</div>
+        </div>
+        <div class="kpi-box">
+            <span>KDA Médio</span>
+            <div class="kpi-val" id="kda">--</div>
+        </div>
+        <div class="kpi-box">
+            <span>Gold @ 14'</span>
+            <div class="kpi-val" id="gold">--</div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        // 1. Proteção: Se não tiver senha, expulsa
+        protegerPagina();
+
+        // 2. Lógica simples pra buscar dados (Exemplo rápido)
+        async function carregarDados() {
+            // Busca nomes únicos
+            const { data } = await supabase.from('partidas_br').select('Player Name');
+            if(data) {
+                const nomes = [...new Set(data.map(i => i['Player Name']))].filter(n => n);
+                const menu = document.getElementById('playerSelect');
+                menu.innerHTML = '<option>Selecione...</option>';
+                nomes.forEach(n => {
+                    let opt = document.createElement('option');
+                    opt.text = n;
+                    menu.add(opt);
+                });
+            }
+        }
+        carregarDados();
+    </script>
+</body>
+</html>
