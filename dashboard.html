@@ -2,57 +2,60 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - Rift Analytics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rift Analysis - Dashboard</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
-<body class="dashboard-mode">
+<body>
 
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>Painel de Controle</h1>
-        <button onclick="sair()" style="width: auto; background: #ff4444;">SAIR</button>
+    <div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#090a0c; z-index:9999; display:flex; justify-content:center; align-items:center; color: #c09c3c;">
+        <h2>Verificando credenciais...</h2>
     </div>
 
-    <select id="playerSelect">
-        <option>Carregando jogadores...</option>
-    </select>
+    <div class="dashboard-container">
+        
+        <aside class="sidebar">
+            <div class="brand">
+                <h3>Rift Analysis</h3>
+            </div>
+            
+            <nav>
+                <a href="#" class="active"><i class="material-icons">dashboard</i> Visão Geral</a>
+                <a href="#"><i class="material-icons">bar_chart</i> Partidas</a>
+                <a href="#"><i class="material-icons">person</i> Perfil</a>
+            </nav>
 
-    <div class="kpi-grid">
-        <div class="kpi-box">
-            <span>Win Rate</span>
-            <div class="kpi-val" id="wr">--%</div>
-        </div>
-        <div class="kpi-box">
-            <span>KDA Médio</span>
-            <div class="kpi-val" id="kda">--</div>
-        </div>
-        <div class="kpi-box">
-            <span>Gold @ 14'</span>
-            <div class="kpi-val" id="gold">--</div>
-        </div>
+            <div class="user-info">
+                <p id="userNickDisplay" style="color: #c09c3c; font-weight: bold;">Carregando...</p>
+                <button id="logoutBtn">Sair</button>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header>
+                <h1 id="welcomeMsg">Bem-vindo, Invocador.</h1>
+            </header>
+
+            <div class="stats-grid">
+                <div class="card">
+                    <h3>Winrate</h3>
+                    <p class="big-number">52%</p>
+                </div>
+                <div class="card">
+                    <h3>KDA Médio</h3>
+                    <p class="big-number">3.4</p>
+                </div>
+                <div class="card">
+                    <h3>Partidas Analisadas</h3>
+                    <p class="big-number">0</p>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <script src="auth.js"></script>
-    <script>
-        // 1. Proteção: Se não tiver senha, expulsa
-        protegerPagina();
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="dashboard.js"></script>
 
-        // 2. Lógica simples pra buscar dados (Exemplo rápido)
-        async function carregarDados() {
-            // Busca nomes únicos
-            const { data } = await supabase.from('partidas_br').select('Player Name');
-            if(data) {
-                const nomes = [...new Set(data.map(i => i['Player Name']))].filter(n => n);
-                const menu = document.getElementById('playerSelect');
-                menu.innerHTML = '<option>Selecione...</option>';
-                nomes.forEach(n => {
-                    let opt = document.createElement('option');
-                    opt.text = n;
-                    menu.add(opt);
-                });
-            }
-        }
-        carregarDados();
-    </script>
 </body>
 </html>
