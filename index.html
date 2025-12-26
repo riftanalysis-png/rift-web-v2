@@ -4,41 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rift Analysis - Login</title>
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="login-container">
-        <div class="header">
-            <h1>Rift Analysis</h1>
-            <p>Sua performance, analisada.</p>
-        </div>
-
-        <form id="authForm">
-            <div class="input-group">
-                <input type="email" id="email" placeholder="Digite seu email" required>
-            </div>
-            
-            <div class="input-group">
-                <input type="password" id="password" placeholder="Sua senha" required>
-            </div>
-
-            <p id="errorMessage" class="error-text"></p>
-
-            <button type="submit" id="submitBtn">Entrar</button>
-        </form>
-
-        <div style="margin-top: 15px; text-align: center; font-size: 0.9rem; color: #e0e0e0;">
-            <span id="toggleText">Não tem uma conta?</span>
-            <a href="#" id="toggleLink" style="color: #c09c3c; text-decoration: none; font-weight: bold; margin-left: 5px;">
-                Cadastre-se
-            </a>
-        </div>
+<div class="login-container">
+    <div class="header">
+        <h1>Rift Analysis</h1>
+        <p>Sua performance, analisada.</p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="auth.js"></script>
+    <form id="authForm">
+
+        <!-- Campos extras (cadastro) -->
+        <div id="extraFields" style="display: none;">
+            <div class="input-group">
+                <input type="text" id="fullName" placeholder="Nome Completo">
+            </div>
+            <div class="input-group">
+                <input type="text" id="nick" placeholder="Nick do LoL (Ex: Faker#KR1)">
+            </div>
+        </div>
+
+        <!-- Email -->
+        <div class="input-group">
+            <input type="email" id="email" placeholder="Digite seu email" required>
+        </div>
+
+        <!-- Senha -->
+        <div class="input-group">
+            <input type="password" id="password" placeholder="Sua senha" required>
+        </div>
+
+        <!-- Mensagem de erro -->
+        <p id="errorMessage" class="error-text"></p>
+
+        <!-- Botão -->
+        <button type="submit" id="submitBtn">Entrar</button>
+
+    </form>
+
+    <!-- Toggle login / cadastro -->
+    <div style="margin-top: 15px; text-align: center; font-size: 0.9rem; color: #e0e0e0;">
+        <span id="toggleText">Não tem uma conta?</span>
+        <a href="#" id="toggleLink" style="color: #c09c3c; text-decoration: none; font-weight: bold; margin-left: 5px;">
+            Cadastre-se
+        </a>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 
 </body>
 </html>
