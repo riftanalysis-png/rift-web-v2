@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rift Analysis - Dashboard</title>
+    
     <link rel="stylesheet" href="style.css">
+    
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
 
-    <div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#090a0c; z-index:9999; display:flex; justify-content:center; align-items:center; color: #c09c3c;">
-        <h2>Verificando credenciais...</h2>
+    <div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#050607; z-index:9999; display:flex; justify-content:center; align-items:center; color: #c8aa6e;">
+        <h2 style="font-family: sans-serif; font-weight: 300;">Carregando dados do Invocador...</h2>
     </div>
 
     <div class="dashboard-container">
@@ -24,32 +26,52 @@
                 <a href="#" class="active"><i class="material-icons">dashboard</i> Visão Geral</a>
                 <a href="#"><i class="material-icons">bar_chart</i> Partidas</a>
                 <a href="#"><i class="material-icons">person</i> Perfil</a>
+                <a href="#"><i class="material-icons">settings</i> Configurações</a>
             </nav>
 
             <div class="user-info">
-                <p id="userNickDisplay" style="color: #c09c3c; font-weight: bold;">Carregando...</p>
+                <p id="userNickDisplay" style="color: #8a92a3; font-size: 0.9rem; margin-bottom: 10px;">Carregando...</p>
                 <button id="logoutBtn">Sair</button>
             </div>
         </aside>
 
         <main class="content">
             <header>
-                <h1 id="welcomeMsg">Bem-vindo, Invocador.</h1>
+                <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
+                <p style="color: #8a92a3; margin-top: 5px;">Aqui está o resumo da sua performance recente.</p>
             </header>
 
             <div class="stats-grid">
+                
                 <div class="card">
-                    <h3>Winrate</h3>
-                    <p class="big-number">52%</p>
+                    <h3>Winrate Geral</h3>
+                    <p class="big-number">52.4%</p>
                 </div>
+                
                 <div class="card">
                     <h3>KDA Médio</h3>
-                    <p class="big-number">3.4</p>
+                    <p class="big-number">3.4 : 1</p>
                 </div>
+
                 <div class="card">
-                    <h3>Partidas Analisadas</h3>
-                    <p class="big-number">0</p>
+                    <h3>Campeão Mais Jogado</h3>
+                    <div style="margin-top: 15px;">
+                        <div class="champ-badge">
+                            <img src="https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Jhin.png" alt="Campeão">
+                            <span>Jhin</span>
+                        </div>
+                        <p style="color: #8a92a3; font-size: 0.85rem; margin-top: 8px;">24 Partidas (60% WR)</p>
+                    </div>
                 </div>
+
+                <div class="card">
+                    <h3>Melhor Função</h3>
+                    <div class="champ-badge" style="margin-top: 15px;">
+                        <i class="material-icons" style="color: var(--accent-gold);">gps_fixed</i>
+                        <span>Mid Lane</span>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
