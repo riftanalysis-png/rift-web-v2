@@ -30,6 +30,11 @@ async function checkSession() {
         const nome = user.user_metadata.full_name || "Invocador";
         const nick = user.user_metadata.lol_nick || "Sem Nick";
 
+        // Agora a mensagem principal usa o NICK
+        welcomeMsg.innerText = `Bem-vindo ao Rift, ${nick}.`; 
+
+        userNickDisplay.innerText = nick; // Ou deixe 'nick' aqui tbm se preferir esconder o nome real
+
         // Atualiza a tela
         welcomeMsg.innerText = `Bem-vindo, ${nome}.`;
         userNickDisplay.innerText = nick;
