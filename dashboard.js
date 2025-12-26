@@ -36,7 +36,7 @@ async function checkSession() {
         userNickDisplay.innerText = nick; // Ou deixe 'nick' aqui tbm se preferir esconder o nome real
 
         // Atualiza a tela
-        welcomeMsg.innerText = `Bem-vindo, ${nome}.`;
+        welcomeMsg.innerText = `Bem-vindo, ${nick}.`;
         userNickDisplay.innerText = nick;
 
         // Tira a tela de carregamento
