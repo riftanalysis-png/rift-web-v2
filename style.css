@@ -210,8 +210,96 @@ header h1 {
     background-color: rgba(200, 170, 110, 0.05);
 }
 
+
+/* =========================================
+   BARRA DE PESQUISA (SEARCH BAR)
+========================================= */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 30px;
+}
+
+.search-container {
+    position: relative; /* Para a lista de sugestões flutuar em relação a isso */
+    width: 300px;
+}
+
+.input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+#playerSearch {
+    width: 100%;
+    padding: 10px 10px 10px 40px; /* Espaço para o ícone */
+    background-color: var(--bg-secondary);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; /* Borda redonda moderna */
+    color: white;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.3s;
+}
+
+#playerSearch:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(200, 170, 110, 0.2);
+    background-color: #000;
+}
+
+/* Lista de Sugestões Flutuante */
+.suggestions-box {
+    position: absolute;
+    top: 45px;
+    left: 0;
+    width: 100%;
+    background-color: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    z-index: 100;
+    display: none; /* Escondido por padrão */
+    overflow: hidden;
+}
+
+.suggestion-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    transition: background 0.2s;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background-color: rgba(200, 170, 110, 0.1);
+    color: var(--text-primary);
+}
+
+.suggestion-item strong {
+    color: var(--accent-gold);
+}
+
 /* Mantendo Login Styles básicos para não quebrar caso usem o mesmo CSS */
 .login-container { max-width: 400px; margin: 100px auto; padding: 40px; background: var(--bg-card); text-align: center; border-radius: 8px; }
 .input-group { margin-bottom: 15px; }
 .login-container input { width: 100%; padding: 12px; background: #090a0c; border: 1px solid #333; color: #fff; margin-bottom: 10px; }
 .login-container button { width: 100%; padding: 12px; background: var(--accent-gold); border: none; font-weight: bold; cursor: pointer; }
+
