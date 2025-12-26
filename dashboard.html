@@ -38,10 +38,22 @@
         </aside>
 
         <main class="content">
-            <header>
-                <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
-                <p style="color: #8a92a3; margin-top: 5px;">Análise de performance e eficiência.</p>
-            </header>
+           <header class="dashboard-header">
+    <div class="header-content">
+        <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
+        <p style="color: #8a92a3; margin-top: 5px;">Análise de performance e eficiência.</p>
+    </div>
+
+    <div class="search-container">
+        <div class="input-wrapper">
+            <i class="material-icons search-icon">search</i>
+            <input type="text" id="playerSearch" placeholder="Buscar Invocador..." autocomplete="off">
+        </div>
+        
+        <div class="suggestions-box" id="suggestionsBox">
+            </div>
+    </div>
+</header>
 
             <div class="stats-grid">
                 
@@ -89,3 +101,4 @@
 
 </body>
 </html>
+
