@@ -2,36 +2,42 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Rift Analytics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rift Analysis - Login</title>
+    
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <div class="card">
-        <h2 style="text-align: center; color: #fff;">ACESSO <span style="color:#00ffcc">RIFT</span></h2>
-        
-        <label>Email</label>
-        <input type="email" id="email" placeholder="admin@rift.com">
+    <div class="login-container">
+        <div class="header">
+            <h1>Rift Analysis</h1>
+            <p>Sua performance, analisada.</p>
+        </div>
 
-        <label>Senha</label>
-        <input type="password" id="senha" placeholder="********">
+        <form id="authForm">
+            <div class="input-group">
+                <input type="email" id="email" placeholder="Digite seu email" required>
+            </div>
+            
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Sua senha" required>
+            </div>
 
-        <button onclick="tentarLogar()">ENTRAR</button>
-        <p style="text-align: center; font-size: 0.8rem; color: #666;">Sistema Restrito</p>
+            <button type="submit" id="submitBtn">Entrar</button>
+        </form>
+
+        <div style="margin-top: 15px; text-align: center; font-size: 0.9rem; color: #e0e0e0;">
+            <span id="toggleText">Não tem uma conta?</span>
+            <a href="#" id="toggleLink" style="color: #c09c3c; text-decoration: none; font-weight: bold; margin-left: 5px;">
+                Cadastre-se
+            </a>
+        </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <script src="auth.js"></script>
-    <script>
-        // 1. Se já tiver logado, joga pra dashboard
-        seJaLogadoVaiProDash();
 
-        // 2. Ação do Botão
-        function tentarLogar() {
-            const e = document.getElementById('email').value;
-            const s = document.getElementById('senha').value;
-            fazerLogin(e, s);
-        }
-    </script>
 </body>
 </html>
