@@ -2,19 +2,19 @@
    VARIÁVEIS GLOBAIS (Paleta Premium)
 ========================================= */
 :root {
-    /* Cores de Fundo */
-    --bg-main: #050607;      /* Preto Profundo (Obsidian) */
+    --bg-main: #050607;      /* Preto Profundo */
     --bg-secondary: #0a0c10; /* Menu Lateral */
     --bg-card: #13161d;      /* Cards */
     
-    /* Textos */
     --text-primary: #ffffff;
     --text-secondary: #8a92a3; /* Cinza Metálico */
     
-    /* Acentos (Dourado Hextech) */
     --accent-gold: #c8aa6e;
     --accent-hover: #f0e6d2;
     --error-red: #ff4d4d;
+    
+    --win-blue: #5383e8;
+    --lose-red: #e84057;
 }
 
 * {
@@ -30,91 +30,14 @@ body {
 }
 
 /* =========================================
-   ESTILOS DA TELA DE LOGIN (index.html)
-========================================= */
-.login-container {
-    width: 100%;
-    max-width: 400px;
-    margin: 100px auto;
-    padding: 40px;
-    background-color: var(--bg-card);
-    border-radius: 8px;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-    border: 1px solid #222;
-    text-align: center;
-}
-
-.header h1 {
-    color: var(--accent-gold);
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
-
-.header p {
-    color: var(--text-secondary);
-    margin-bottom: 30px;
-}
-
-.input-group {
-    margin-bottom: 15px;
-}
-
-input {
-    width: 100%;
-    padding: 12px;
-    background-color: #090a0c;
-    border: 1px solid #333;
-    border-radius: 4px;
-    color: white;
-    outline: none;
-    transition: border 0.3s;
-}
-
-input:focus {
-    border-color: var(--accent-gold);
-}
-
-button {
-    width: 100%;
-    padding: 12px;
-    background-color: var(--accent-gold);
-    color: #000;
-    font-weight: bold;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: background 0.3s;
-}
-
-button:hover {
-    background-color: var(--accent-hover);
-}
-
-button:disabled {
-    background-color: #555;
-    cursor: not-allowed;
-}
-
-.error-text {
-    color: var(--error-red);
-    font-size: 0.9rem;
-    text-align: center;
-    margin-bottom: 10px;
-    min-height: 20px;
-    display: block;
-}
-
-/* =========================================
-   ESTILOS DA DASHBOARD (PREMIUM)
+   ESTILOS DA DASHBOARD
 ========================================= */
 
 .dashboard-container {
     display: flex;
     height: 100vh;
     background-color: var(--bg-main);
-    overflow: hidden; /* Evita barra de rolagem dupla */
+    overflow: hidden;
 }
 
 /* --- Menu Lateral --- */
@@ -150,11 +73,8 @@ button:disabled {
     font-weight: 500;
 }
 
-.sidebar nav i {
-    font-size: 1.3rem;
-}
+.sidebar nav i { font-size: 1.3rem; }
 
-/* Hover Dourado Sutil */
 .sidebar nav a:hover, .sidebar nav a.active {
     background-color: rgba(200, 170, 110, 0.08);
     color: var(--accent-gold);
@@ -170,8 +90,8 @@ button:disabled {
 /* --- Área Principal --- */
 .content {
     flex: 1;
-    padding: 50px;
-    overflow-y: auto; /* Rolagem só no conteúdo */
+    padding: 40px;
+    overflow-y: auto;
 }
 
 header h1 {
@@ -180,47 +100,98 @@ header h1 {
     color: var(--text-primary);
 }
 
-/* --- Cards --- */
+/* --- Grid de Cards --- */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 30px;
+    gap: 25px;
     margin-top: 40px;
 }
 
 .card {
     background-color: var(--bg-card);
-    padding: 30px;
+    padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0, 0.3); /* Sombra mais difusa */
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0,0,0, 0.2);
     border: 1px solid rgba(255,255,255, 0.02);
+    transition: transform 0.3s ease;
 }
 
 .card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(0,0,0, 0.4);
     border-color: rgba(200, 170, 110, 0.1);
 }
 
 .card h3 {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--text-secondary);
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .big-number {
-    font-size: 2.8rem;
+    font-size: 2.5rem;
     font-weight: 700;
-    /* Gradiente Dourado no Texto */
     background: linear-gradient(135deg, #fff 30%, var(--accent-gold) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
-/* --- Botão Sair Minimalista --- */
+/* --- Estilos do Gráfico --- */
+/* Faz o card do gráfico ocupar 2 colunas em telas médias/grandes */
+@media (min-width: 900px) {
+    .chart-card {
+        grid-column: span 2;
+    }
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 15px;
+    font-size: 0.8rem;
+}
+
+.chart-legend span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.chart-legend i { font-size: 10px; }
+
+.chart-container {
+    position: relative;
+    height: 350px; /* Altura fixa para o gráfico */
+    width: 100%;
+}
+
+/* --- Badge de Campeão --- */
+.champ-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.champ-badge img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-gold);
+    object-fit: cover;
+}
+
+/* --- Botão Sair --- */
 #logoutBtn {
     background: transparent;
     border: 1px solid rgba(200, 170, 110, 0.3);
@@ -229,7 +200,8 @@ header h1 {
     margin-top: 5px;
     width: 100%;
     border-radius: 6px;
-    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
 #logoutBtn:hover {
@@ -238,23 +210,8 @@ header h1 {
     background-color: rgba(200, 170, 110, 0.05);
 }
 
-/* =========================================
-   COMPONENTE: BADGE DE CAMPEÃO
-========================================= */
-.champ-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-}
-
-.champ-badge img {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    border: 2px solid var(--accent-gold);
-    object-fit: cover;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-}
+/* Mantendo Login Styles básicos para não quebrar caso usem o mesmo CSS */
+.login-container { max-width: 400px; margin: 100px auto; padding: 40px; background: var(--bg-card); text-align: center; border-radius: 8px; }
+.input-group { margin-bottom: 15px; }
+.login-container input { width: 100%; padding: 12px; background: #090a0c; border: 1px solid #333; color: #fff; margin-bottom: 10px; }
+.login-container button { width: 100%; padding: 12px; background: var(--accent-gold); border: none; font-weight: bold; cursor: pointer; }
