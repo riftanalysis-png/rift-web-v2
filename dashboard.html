@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="style.css">
     
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -38,7 +40,7 @@
         <main class="content">
             <header>
                 <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
-                <p style="color: #8a92a3; margin-top: 5px;">Aqui está o resumo da performance recente dos jogadores da RMD na soloqueue.</p>
+                <p style="color: #8a92a3; margin-top: 5px;">Análise de performance e eficiência.</p>
             </header>
 
             <div class="stats-grid">
@@ -64,11 +66,17 @@
                     </div>
                 </div>
 
-                <div class="card">
-                    <h3>Melhor Função</h3>
-                    <div class="champ-badge" style="margin-top: 15px;">
-                        <i class="material-icons" style="color: var(--accent-gold);">gps_fixed</i>
-                        <span>Mid Lane</span>
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <h3>Eficiência de Recursos</h3>
+                        <div class="chart-legend">
+                            <span style="color: #5383e8;"><i class="material-icons">circle</i> Vitória</span>
+                            <span style="color: #e84057;"><i class="material-icons">circle</i> Derrota</span>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="resourceChart"></canvas>
                     </div>
                 </div>
 
@@ -81,4 +89,3 @@
 
 </body>
 </html>
-
