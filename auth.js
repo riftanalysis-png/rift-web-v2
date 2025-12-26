@@ -1,10 +1,13 @@
 // ==========================================
-// 1. CONFIGURAÇÃO (MANTENHA SUAS CHAVES AQUI)
+// 1. CONFIGURAÇÃO 
 // ==========================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ATENÇÃO: Corrigi o nome da variável para bater com a linha de baixo
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
+
+// Mudei de 'supabase' para 'supabaseClient' para não dar erro de conflito com a biblioteca
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
 // 2. ELEMENTOS
@@ -15,7 +18,7 @@ const passwordInput = document.getElementById('password');
 const submitBtn = document.getElementById('submitBtn');
 const toggleLink = document.getElementById('toggleLink');
 const toggleText = document.getElementById('toggleText');
-const errorMsg = document.getElementById('errorMessage'); // Elemento novo
+const errorMsg = document.getElementById('errorMessage');
 
 let isLoginMode = true;
 
@@ -59,8 +62,8 @@ authForm.addEventListener('submit', async (e) => {
 
     try {
         if (isLoginMode) {
-            // LOGIN
-            const { data, error } = await supabase.auth.signInWithPassword({
+            // LOGIN (Usando supabaseClient agora)
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
                 email: email,
                 password: password,
             });
@@ -68,8 +71,8 @@ authForm.addEventListener('submit', async (e) => {
             window.location.href = "dashboard.html";
 
         } else {
-            // CADASTRO
-            const { data, error } = await supabase.auth.signUp({
+            // CADASTRO (Usando supabaseClient agora)
+            const { data, error } = await supabaseClient.auth.signUp({
                 email: email,
                 password: password,
             });
