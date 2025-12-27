@@ -1,103 +1,200 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rift Analysis - Dashboard</title>
-    
-    <link rel="stylesheet" href="style.css">
-    
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <title>LoL Analytics Dashboard</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #c8aa6e; /* Dourado estilo LoL */
+            --accent-hover: #f0c885;
+            --danger-color: #ff4d4d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        header {
+            background-color: var(--card-bg);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #333;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            width: 300px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        button#logoutBtn {
+            background: transparent;
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button#logoutBtn:hover {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        /* MAIN CONTENT */
+        main {
+            padding: 2rem;
+            flex: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .loading {
+            text-align: center;
+            font-style: italic;
+            color: var(--text-secondary);
+            margin-top: 20px;
+            display: none; /* Controlado pelo JS */
+        }
+
+        /* DASHBOARD GRID */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            border: 1px solid #333;
+        }
+
+        .card h3 {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        /* Resumo de Stats (Opcional, para expansão futura) */
+        .stats-summary {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            text-align: center;
+            border: 1px solid #333;
+        }
+        
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: white; }
+        .stat-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; }
+
+    </style>
 </head>
 <body>
 
-    <div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#050607; z-index:9999; display:flex; justify-content:center; align-items:center; color: #c8aa6e;">
-        <div style="text-align: center;">
-            <h2 style="font-family: sans-serif; font-weight: 300; margin-bottom: 10px;">Iniciando Sistema...</h2>
-        </div>
-    </div>
-
-    <div class="dashboard-container">
+    <header>
+        <div class="logo">Nexus Analytics</div>
         
-        <aside class="sidebar">
-            <div class="brand">
-                <h3>Rift Analysis</h3>
+        <div class="search-box">
+            <input type="text" id="playerSearch" placeholder="Buscar Jogador (ex: Zekas#2002)...">
+        </div>
+
+        <button id="logoutBtn">Sair</button>
+    </header>
+
+    <main>
+        <div id="loadingIndicator" class="loading">
+            Carregando dados da API...
+        </div>
+
+        <div id="stats-container" class="stats-summary">
+            <div class="stat-box">
+                <div class="stat-value">---</div>
+                <div class="stat-label">Partidas Analisadas</div>
             </div>
-            
-            <nav>
-                <a href="#" class="active"><i class="material-icons">dashboard</i> Visão Geral</a>
-                <a href="#"><i class="material-icons">bar_chart</i> Partidas</a>
-                <a href="#"><i class="material-icons">settings</i> Config</a>
-            </nav>
-
-            <div class="user-info">
-                <p id="userNickDisplay" style="color: #8a92a3; font-size: 0.9rem; margin-bottom: 10px;">Visitante</p>
-                <button id="logoutBtn">Sair</button>
+            <div class="stat-box">
+                <div class="stat-value">---</div>
+                <div class="stat-label">Win Rate Recente</div>
             </div>
-        </aside>
-
-        <main class="content">
-            
-            <header class="dashboard-header">
-                <div class="header-content">
-                    <h1 id="welcomeMsg">Bem-vindo.</h1>
-                    <p style="color: #8a92a3; margin-top: 5px;">Digite um nick para iniciar a análise.</p>
-                </div>
-
-                <div class="search-container">
-                    <div class="input-wrapper">
-                        <i class="material-icons search-icon">search</i>
-                        <input type="text" id="playerSearch" placeholder="Buscar Invocador..." autocomplete="off">
-                    </div>
-                    <div class="suggestions-box" id="suggestionsBox" style="display: none;"></div>
-                </div>
-            </header>
-
-            <div class="stats-grid">
-                
-                <div class="card">
-                    <h3>Winrate Geral</h3>
-                    <p class="big-number" id="valWinrate">-</p>
-                </div>
-                
-                <div class="card">
-                    <h3>KDA Médio</h3>
-                    <p class="big-number" id="valKDA">-</p>
-                </div>
-
-                <div class="card">
-                    <h3>Campeão Mais Jogado</h3>
-                    <div style="margin-top: 15px;">
-                        <div class="champ-badge">
-                            <img id="imgMainChamp" src="https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/29.png" alt="Campeão">
-                            <span id="txtMainChamp">...</span>
-                        </div>
-                        <p id="txtMainChampStats" style="color: #8a92a3; font-size: 0.85rem; margin-top: 8px;">Aguardando dados...</p>
-                    </div>
-                </div>
-
-                <div class="card chart-card">
-                    <div class="chart-header">
-                        <h3>Eficiência de Recursos</h3>
-                        <div class="chart-legend">
-                            <span style="color: #5383e8;"><i class="material-icons" style="font-size: 10px;">circle</i> Vitória</span>
-                            <span style="color: #e84057;"><i class="material-icons" style="font-size: 10px;">circle</i> Derrota</span>
-                        </div>
-                    </div>
-                    
-                    <div class="chart-container">
-                        <canvas id="resourceChart"></canvas>
-                    </div>
-                </div>
-
+            <div class="stat-box">
+                <div class="stat-value">---</div>
+                <div class="stat-label">Média KDA</div>
             </div>
-        </main>
-    </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <h3>📈 Desempenho: Ouro vs Dano</h3>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="graficoPrincipal"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🌾 Consistência: Farm (CS/Min)</h3>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="graficoFarm"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
 
     <script src="dashboard.js"></script>
-
 </body>
 </html>
