@@ -75,7 +75,7 @@ function renderSuggestions(list) {
 }
 
 // ==========================================
-// 4. BUSCAR DADOS REAIS
+// 4. BUSCAR DADOS REAIS NO SUPABASE
 // ==========================================
 async function fetchRealPlayerData(nick) {
     searchInput.value = nick;
@@ -83,13 +83,18 @@ async function fetchRealPlayerData(nick) {
     welcomeMsg.innerText = `Carregando dados de ${nick}...`;
 
     try {
-        // CORREÇÃO AQUI: Mudamos de 'partidas_soloq' para 'partidas_br'
+        // CORREÇÃO 1: Nome exato da tabela conforme seu erro mostrou ('partidas_br')
         const { data, error } = await supabaseClient
             .from('partidas_br') 
             .select('*')
-            .ilike('Player Name', nick);
+            .ilike('Player Name', nick); // Busca pelo Nick
 
         if (error) throw error;
+
+        // DEBUG: Mostra no console o que veio do banco (ajuda a conferir nomes das colunas)
+        if(data.length > 0) {
+            console.log("Exemplo de partida carregada:", data[0]);
+        }
 
         if (!data || data.length === 0) {
             alert("Nenhuma partida encontrada para este jogador.");
@@ -97,7 +102,7 @@ async function fetchRealPlayerData(nick) {
             return;
         }
 
-        // --- CÁLCULOS GERAIS (Cards) ---
+        // --- CÁLCULOS GERAIS ---
         const totalGames = data.length;
         const wins = data.filter(match => match['Win Rate %'] == 1 || match['Win Rate %'] == 100).length;
         const winrate = ((wins / totalGames) * 100).toFixed(1) + "%";
@@ -133,23 +138,28 @@ async function fetchRealPlayerData(nick) {
 
         // --- DADOS PARA O GRÁFICO ---
         const chartData = data.map(match => {
+            // CORREÇÃO 2: Uso estrito das colunas.
+            // O JavaScript não confunde 'Damage/Min' com 'Damage/Min 5' aqui.
+            // Ele pega exatamente o valor da chave que digitamos.
+            
             const dpm = parseFloat(match['Damage/Min']) || 0;
             const gpm = parseFloat(match['Gold/Min']) || 1; 
+            
             const isWin = match['Win Rate %'] == 1 || match['Win Rate %'] == 100;
 
-            // Eficiência em Porcentagem (ex: 150%)
+            // Eficiência (Dano / Gold) * 100
             const eficienciaPercent = (dpm / gpm) * 100;
 
-            // Tamanho da bolha (ajuste visual, dividindo por 6)
+            // Ajuste visual do tamanho (Dividido por 6 para não ficar gigante)
             const radius = eficienciaPercent / 6;
 
             return {
-                y: dpm,    // Eixo Y: Dano
-                x: gpm,    // Eixo X: Ouro
-                r: radius < 5 ? 5 : radius, // Mínimo de 5px
+                y: dpm,    // Eixo Y
+                x: gpm,    // Eixo X
+                r: radius < 5 ? 5 : radius, 
                 champ: match['Champion'],
                 win: isWin,
-                efficiency: eficienciaPercent.toFixed(0) // Para o tooltip
+                efficiency: eficienciaPercent.toFixed(0)
             };
         });
 
@@ -157,7 +167,7 @@ async function fetchRealPlayerData(nick) {
 
     } catch (err) {
         console.error("Erro:", err);
-        alert("Erro ao processar dados. Verifique o console.");
+        alert("Erro ao processar dados. Verifique o console (F12).");
     }
 }
 
@@ -265,11 +275,13 @@ function createChart(vitorias, derrotas) {
                     title: { display: true, text: 'Gold por Minuto (GPM)', color: '#8a92a3' }, 
                     grid: { color: 'rgba(255,255,255,0.03)' }, 
                     ticks: { color: '#8a92a3' },
+                    suggestedMin: 0,
                 },
                 y: { 
                     title: { display: true, text: 'Dano por Minuto (DPM)', color: '#8a92a3' }, 
                     grid: { color: 'rgba(255,255,255,0.03)' }, 
                     ticks: { color: '#8a92a3' },
+                    suggestedMin: 0,
                 }
             }
         }
@@ -292,7 +304,7 @@ async function checkSession() {
         userNickDisplay.innerText = nome;
         loadingScreen.style.display = 'none';
 
-        // Carrega o Zekas por padrão
+        // Carrega o Zekas por padrão (se estiver na tabela)
         fetchRealPlayerData("Zekas#2002");
     }
 }
