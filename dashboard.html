@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoL Analytics Dashboard</title>
+    <title>LoL Analytics - Dashboard</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -11,16 +11,18 @@
 
     <style>
         :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --text-primary: #e0e0e0;
-            --text-secondary: #a0a0a0;
-            --accent-color: #c8aa6e; /* Dourado estilo LoL */
-            --accent-hover: #f0c885;
-            --danger-color: #ff4d4d;
+            --bg-color: #09090b;       /* Fundo quase preto */
+            --card-bg: #18181b;        /* Fundo dos cards */
+            --border-color: #27272a;   /* Bordas sutis */
+            --text-primary: #e4e4e7;   /* Texto claro */
+            --text-secondary: #a1a1aa; /* Texto cinza */
+            
+            --accent-blue: #00BFFF;    /* Vitória */
+            --accent-red: #FF4500;     /* Derrota */
+            --accent-gold: #fbbf24;    /* Ouro */
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', sans-serif; }
 
         body {
             background-color: var(--bg-color);
@@ -33,165 +35,186 @@
         /* HEADER */
         header {
             background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #333;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--accent-color);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .search-box {
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: white;
             display: flex;
+            align-items: center;
             gap: 10px;
+        }
+        .brand span { color: var(--accent-gold); }
+
+        .search-container {
+            position: relative;
         }
 
         input[type="text"] {
-            background: #2a2a2a;
-            border: 1px solid #444;
+            background: #000;
+            border: 1px solid var(--border-color);
             color: white;
             padding: 10px 15px;
-            border-radius: 4px;
-            width: 300px;
+            border-radius: 6px;
+            width: 350px;
+            font-size: 0.9rem;
             outline: none;
-            transition: 0.3s;
+            transition: border-color 0.2s;
         }
 
         input[type="text"]:focus {
-            border-color: var(--accent-color);
+            border-color: var(--accent-blue);
         }
 
-        button#logoutBtn {
+        button.logout {
             background: transparent;
-            border: 1px solid var(--danger-color);
-            color: var(--danger-color);
-            padding: 8px 20px;
-            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: 0.3s;
+            font-size: 0.85rem;
+            transition: 0.2s;
         }
 
-        button#logoutBtn:hover {
-            background: var(--danger-color);
-            color: white;
+        button.logout:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
         }
 
-        /* MAIN CONTENT */
+        /* MAIN LAYOUT */
         main {
             padding: 2rem;
-            flex: 1;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             width: 100%;
         }
 
-        .loading {
-            text-align: center;
-            font-style: italic;
-            color: var(--text-secondary);
-            margin-top: 20px;
-            display: none; /* Controlado pelo JS */
-        }
-
-        /* DASHBOARD GRID */
-        .dashboard-grid {
+        /* GRID DOS GRÁFICOS */
+        .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            grid-template-columns: 1fr; /* Mobile First */
             gap: 20px;
             margin-top: 20px;
+        }
+
+        /* Desktop: Gráfico Principal ocupa muito espaço, o de Farm fica embaixo ou ao lado */
+        @media (min-width: 1024px) {
+            .grid-container {
+                grid-template-columns: 3fr 1fr; /* 3 partes para o Scatter, 1 parte para o Farm */
+            }
         }
 
         .card {
             background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            border: 1px solid #333;
-        }
-
-        .card h3 {
-            color: var(--accent-color);
-            margin-bottom: 15px;
-            font-size: 1.1rem;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
-
-        /* Resumo de Stats (Opcional, para expansão futura) */
-        .stats-summary {
             display: flex;
-            gap: 20px;
+            flex-direction: column;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
         }
-        
-        .stat-box {
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            flex: 1;
-            text-align: center;
-            border: 1px solid #333;
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
         }
-        
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: white; }
-        .stat-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; }
+
+        .card-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* CONTAINER DOS CANVAS */
+        .chart-wrapper-large {
+            position: relative;
+            height: 500px; /* Altura generosa para as bolhas */
+            width: 100%;
+        }
+
+        .chart-wrapper-small {
+            position: relative;
+            height: 500px; /* Altura igual para alinhar no grid */
+            width: 100%;
+        }
+
+        /* LEGENDAS CUSTOMIZADAS */
+        .legend-guide {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .dot.blue { background: var(--accent-blue); }
+        .dot.red { background: var(--accent-red); }
 
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo">Nexus Analytics</div>
+        <div class="brand">
+            <span>⚡</span> DATA RIFT
+        </div>
         
-        <div class="search-box">
-            <input type="text" id="playerSearch" placeholder="Buscar Jogador (ex: Zekas#2002)...">
+        <div class="search-container">
+            <input type="text" id="playerSearch" placeholder="Pesquisar Invocador (Ex: Zekas#2002)...">
         </div>
 
-        <button id="logoutBtn">Sair</button>
+        <button id="logoutBtn" class="logout">Sair</button>
     </header>
 
     <main>
-        <div id="loadingIndicator" class="loading">
-            Carregando dados da API...
-        </div>
-
-        <div id="stats-container" class="stats-summary">
-            <div class="stat-box">
-                <div class="stat-value">---</div>
-                <div class="stat-label">Partidas Analisadas</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value">---</div>
-                <div class="stat-label">Win Rate Recente</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value">---</div>
-                <div class="stat-label">Média KDA</div>
-            </div>
-        </div>
-
-        <div class="dashboard-grid">
+        <div class="grid-container">
+            
             <div class="card">
-                <h3>📈 Desempenho: Ouro vs Dano</h3>
-                <div style="position: relative; height: 300px;">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Eficiência de Carry</div>
+                        <div class="card-subtitle">Eixo X: Dano | Eixo Y: Ouro | Tamanho: Eficiência de Gold (GPM)</div>
+                        
+                        <div class="legend-guide">
+                            <div class="legend-item"><span class="dot blue"></span> Vitória</div>
+                            <div class="legend-item"><span class="dot red"></span> Derrota</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-wrapper-large">
                     <canvas id="graficoPrincipal"></canvas>
                 </div>
             </div>
 
             <div class="card">
-                <h3>🌾 Consistência: Farm (CS/Min)</h3>
-                <div style="position: relative; height: 300px;">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Histórico de Farm</div>
+                        <div class="card-subtitle">Minions por Minuto (CS/Min)</div>
+                    </div>
+                </div>
+                
+                <div class="chart-wrapper-small">
                     <canvas id="graficoFarm"></canvas>
                 </div>
             </div>
+
         </div>
     </main>
 
