@@ -1,217 +1,131 @@
+/**
+ * LEAGUE OF LEGENDS DASHBOARD SCRIPT
+ * Refatorado para modularidade e limpeza.
+ */
+
 // ==========================================
-// 1. CONFIGURAÇÃO & VARIÁVEIS GLOBAIS
+// 1. CONFIGURAÇÃO & CONSTANTES
 // ==========================================
-const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
+const CONFIG = {
+    SUPABASE: {
+        URL: "https://fkhvdxjeikswyxwhvdpg.supabase.co",
+        KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc"
+    },
+    CDRAGON_URL: "https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/",
+    SUGGESTED_NICKS: [
+        "Zekas#2002", "han dao#EGC", "Pilot#br11", "Celo#br2", "Gatovisck#愛憎の影"
+    ]
+};
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Seletores DOM centralizados
+const UI_ELEMENTS = {
+    loading: document.getElementById('loadingScreen'),
+    welcome: document.getElementById('welcomeMsg'),
+    userNick: document.getElementById('userNickDisplay'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    search: document.getElementById('playerSearch'),
+    suggestions: document.getElementById('suggestionsBox'),
+    stats: {
+        winrate: document.querySelector('.card:nth-child(1) .big-number'),
+        kda: document.querySelector('.card:nth-child(2) .big-number'),
+        mainChampName: document.querySelector('.champ-badge span'),
+        mainChampImg: document.querySelector('.champ-badge img'),
+        mainChampCount: document.querySelector('.card:nth-child(3) p'),
+    },
+    chartCanvas: document.getElementById('resourceChart').getContext('2d')
+};
 
-// Elementos DOM
-const loadingScreen = document.getElementById('loadingScreen');
-const welcomeMsg = document.getElementById('welcomeMsg');
-const userNickDisplay = document.getElementById('userNickDisplay');
-const logoutBtn = document.getElementById('logoutBtn');
-const searchInput = document.getElementById('playerSearch');
-const suggestionsBox = document.getElementById('suggestionsBox');
-
-// Elementos Visuais
-const displayWinrate = document.querySelector('.card:nth-child(1) .big-number');
-const displayKDA = document.querySelector('.card:nth-child(2) .big-number');
-const displayMainChampName = document.querySelector('.champ-badge span');
-const displayMainChampImg = document.querySelector('.champ-badge img');
-const displayMainChampStats = document.querySelector('.card:nth-child(3) p');
-
+const supabaseClient = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.KEY);
 let chartInstance = null;
 
 // ==========================================
-// 2. LISTA DE SUGESTÕES
+// 2. SERVIÇOS (DADOS)
 // ==========================================
-const suggestedNicks = [
-    "Zekas#2002", "han dao#EGC", "Pilot#br11", "Celo#br2", "Gatovisck#愛憎の影"
-];
+const PlayerService = {
+    async fetchHistory(nick) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('partidas_br')
+                .select('*')
+                .ilike('Player Name', nick);
 
-// ==========================================
-// 3. LÓGICA DE BUSCA
-// ==========================================
-searchInput.addEventListener('focus', () => {
-    const termo = searchInput.value.toLowerCase();
-    const lista = termo === "" ? suggestedNicks : suggestedNicks.filter(n => n.toLowerCase().includes(termo));
-    renderSuggestions(lista);
-    suggestionsBox.style.display = 'block';
-});
-
-searchInput.addEventListener('input', (e) => {
-    const termo = e.target.value.toLowerCase();
-    const nicksFiltrados = suggestedNicks.filter(nick => nick.toLowerCase().includes(termo));
-    
-    if (nicksFiltrados.length > 0) {
-        renderSuggestions(nicksFiltrados);
-        suggestionsBox.style.display = 'block';
-    } else {
-        suggestionsBox.style.display = 'none';
-    }
-});
-
-document.addEventListener('click', (e) => {
-    if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
-        suggestionsBox.style.display = 'none';
-    }
-});
-
-function renderSuggestions(list) {
-    suggestionsBox.innerHTML = '';
-    list.forEach(nick => {
-        const div = document.createElement('div');
-        div.className = 'suggestion-item';
-        const [name, tag] = nick.split('#');
-        div.innerHTML = `<span>${name}</span><strong style="font-size:0.8rem; color:#666;">#${tag || ''}</strong>`;
-        
-        div.addEventListener('click', () => {
-            fetchRealPlayerData(nick); 
-        });
-        
-        suggestionsBox.appendChild(div);
-    });
-}
-
-// ==========================================
-// 4. BUSCAR DADOS REAIS E LIMPAR DUPLICATAS
-// ==========================================
-async function fetchRealPlayerData(nick) {
-    searchInput.value = nick;
-    suggestionsBox.style.display = 'none';
-    welcomeMsg.innerText = `Carregando dados de ${nick}...`;
-
-    try {
-        // CORREÇÃO 1: Usar .eq() em vez de .ilike() para ser EXATO
-        // Isso evita pegar nicks parecidos.
-        const { data, error } = await supabaseClient
-            .from('partidas_br') 
-            .select('*')
-            .eq('Player Name', nick); 
-
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-            alert("Nenhuma partida encontrada para este jogador.");
-            welcomeMsg.innerText = `Sem dados para: ${nick}`;
-            return;
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error("Erro Supabase:", err);
+            throw err;
         }
+    },
 
-        // =========================================================
-        // CORREÇÃO 2: REMOVER DUPLICATAS (O Segredo!) 🛡️
-        // =========================================================
-        const partidasUnicas = [];
-        const idsVistos = new Set();
+    async checkSession() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        return session;
+    },
 
-        data.forEach(match => {
-            // Usa 'Match ID' para saber se é repetida
-            const id = match['Match ID']; 
-            
-            if (!idsVistos.has(id)) {
-                idsVistos.add(id);
-                partidasUnicas.push(match);
-            }
+    async logout() {
+        return await supabaseClient.auth.signOut();
+    }
+};
+
+// ==========================================
+// 3. CALCULADORA (LÓGICA DE NEGÓCIO)
+// ==========================================
+const StatsCalculator = {
+    calculateWinrate(matches) {
+        if (!matches.length) return "0%";
+        const wins = matches.filter(m => m['Win Rate %'] == 1 || m['Win Rate %'] == 100).length;
+        return ((wins / matches.length) * 100).toFixed(1) + "%";
+    },
+
+    calculateAvgKDA(matches) {
+        let total = 0, count = 0;
+        matches.forEach(m => {
+            const val = parseFloat(m['KDA']);
+            if (!isNaN(val)) { total += val; count++; }
         });
+        return count > 0 ? (total / count).toFixed(1) : "-";
+    },
 
-        // Agora usamos APENAS 'partidasUnicas' para tudo
-        const cleanData = partidasUnicas;
-
-        console.log(`Dados brutos: ${data.length} | Dados únicos: ${cleanData.length}`);
-
-        if (cleanData.length === 0) {
-            alert("Erro: Dados encontrados mas inconsistentes.");
-            return;
-        }
-
-        // --- CÁLCULOS GERAIS ---
-        const totalGames = cleanData.length;
-        const wins = cleanData.filter(match => match['Win Rate %'] == 1 || match['Win Rate %'] == 100).length;
-        const winrate = ((wins / totalGames) * 100).toFixed(1) + "%";
-
-        // Média KDA
-        let totalKDA = 0;
-        let validKDA = 0;
-        cleanData.forEach(match => {
-             const kdaVal = parseFloat(match['KDA']);
-             if(!isNaN(kdaVal)) {
-                 totalKDA += kdaVal;
-                 validKDA++;
-             }
+    findMainChamp(matches) {
+        if (!matches.length) return { name: '-', count: 0 };
+        
+        const counts = {};
+        matches.forEach(m => {
+            const c = m['Champion'];
+            counts[c] = (counts[c] || 0) + 1;
         });
-        const avgKDA = validKDA > 0 ? (totalKDA / validKDA).toFixed(1) : "-";
+        
+        const bestChamp = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+        return { name: bestChamp, count: counts[bestChamp] };
+    },
 
-        // Main Champ
-        const champCounts = {};
-        cleanData.forEach(match => {
-            const c = match['Champion'];
-            champCounts[c] = (champCounts[c] || 0) + 1;
-        });
-        const mainChamp = Object.keys(champCounts).reduce((a, b) => champCounts[a] > champCounts[b] ? a : b);
-
-        // Atualiza Tela
-        welcomeMsg.innerText = `Análise: ${nick}`;
-        displayWinrate.innerText = winrate;
-        displayKDA.innerText = avgKDA;
-
-        displayMainChampName.innerText = mainChamp;
-        displayMainChampImg.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${mainChamp.replace(/[^a-zA-Z0-9]/g, '')}.png`;
-        displayMainChampStats.innerText = `${champCounts[mainChamp]} Partidas`;
-
-        // --- DADOS PARA O GRÁFICO ---
-        const chartData = cleanData.map(match => {
+    processChartData(matches) {
+        return matches.map(match => {
             const dpm = parseFloat(match['Damage/Min']) || 0;
-            const gpm = parseFloat(match['Gold/Min']) || 1; 
-            const isWin = match['Win Rate %'] == 1 || match['Win Rate %'] == 100;
-
-            const eficienciaPercent = (dpm / gpm) * 100;
-            const radius = eficienciaPercent / 6;
-
+            const gpm = parseFloat(match['Gold/Min']) || 1;
+            const efficiency = (dpm / gpm) * 100;
+            const radius = Math.max(5, efficiency / 6); // Garante tamanho mínimo
+            
             return {
-                y: dpm,    
-                x: gpm,    
-                r: radius < 5 ? 5 : radius, 
+                x: gpm,
+                y: dpm,
+                r: radius,
                 champ: match['Champion'],
-                win: isWin,
-                efficiency: eficienciaPercent.toFixed(0)
+                win: (match['Win Rate %'] == 1 || match['Win Rate %'] == 100),
+                efficiency: efficiency.toFixed(0)
             };
         });
-
-        updateChart(chartData);
-
-    } catch (err) {
-        console.error("Erro:", err);
-        alert("Erro ao processar dados. Verifique o console (F12).");
     }
-}
+};
 
 // ==========================================
-// 5. GRÁFICO (CHART.JS)
+// 4. GERENCIADOR DE GRÁFICO (CHART.JS)
 // ==========================================
-function updateChart(newData) {
-    const carregarImg = (nome) => {
-        const img = new Image();
-        const cleanName = nome.replace(/[^a-zA-Z0-9]/g, ''); 
-        img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${cleanName}.png`;
-        return img;
-    };
-
-    const vitorias = newData.filter(d => d.win).map(d => ({ ...d, image: carregarImg(d.champ) }));
-    const derrotas = newData.filter(d => !d.win).map(d => ({ ...d, image: carregarImg(d.champ) }));
-
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
-
-    createChart(vitorias, derrotas);
-}
-
-function createChart(vitorias, derrotas) {
-    const ctx = document.getElementById('resourceChart').getContext('2d');
-
-    const imagePlugin = {
+const ChartManager = {
+    // Plugin customizado extraído para clareza
+    championImagePlugin: {
         id: 'customImage',
-        afterDatasetDraw(chart, args, options) {
+        afterDatasetDraw(chart, args) {
             const { ctx } = chart;
             const meta = args.meta;
             
@@ -219,8 +133,8 @@ function createChart(vitorias, derrotas) {
                 const dataPoint = chart.data.datasets[meta.index].data[index];
                 const { x, y } = element.getProps(['x', 'y'], true);
                 const radius = element.options.radius;
-                
-                if(dataPoint.image && dataPoint.image.complete && dataPoint.image.naturalHeight !== 0) {
+
+                if (dataPoint.image && dataPoint.image.complete && dataPoint.image.naturalHeight !== 0) {
                     ctx.save();
                     ctx.beginPath();
                     ctx.arc(x, y, radius, 0, Math.PI * 2, true);
@@ -228,103 +142,198 @@ function createChart(vitorias, derrotas) {
                     ctx.clip();
                     ctx.drawImage(dataPoint.image, x - radius, y - radius, radius * 2, radius * 2);
                     
+                    // Borda baseada em vitória/derrota
                     ctx.lineWidth = 3;
                     ctx.strokeStyle = dataPoint.win ? '#5383e8' : '#e84057';
                     ctx.stroke();
-
                     ctx.restore();
-                } else {
-                    dataPoint.image.onload = () => chart.update();
                 }
             });
         }
-    };
+    },
 
-    chartInstance = new Chart(ctx, {
-        type: 'bubble',
-        plugins: [imagePlugin],
-        data: {
-            datasets: [
-                { 
-                    label: 'Vitória', 
-                    data: vitorias, 
-                    backgroundColor: 'rgba(83, 131, 232, 0.1)', 
-                    borderColor: 'transparent',
-                    hoverRadius: 0 
-                },
-                { 
-                    label: 'Derrota', 
-                    data: derrotas, 
-                    backgroundColor: 'rgba(232, 64, 87, 0.1)', 
-                    borderColor: 'transparent',
-                    hoverRadius: 0 
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: { 
-                legend: { display: false }, 
-                tooltip: { 
-                    backgroundColor: '#13161d', 
-                    titleColor: '#c8aa6e',
-                    bodyColor: '#fff',
-                    callbacks: { 
-                        label: c => {
-                            const d = c.raw;
-                            return [
-                                ` ${d.champ}`,
-                                ` Eficiência: ${d.efficiency}%`,
-                                ` Dano/min: ${d.y.toFixed(0)}`,
-                                ` Gold/min: ${d.x.toFixed(0)}`
-                            ];
-                        }
-                    } 
-                } 
+    preloadImages(dataPoints, onReady) {
+        let loaded = 0;
+        const total = dataPoints.length;
+        
+        return dataPoints.map(point => {
+            const img = new Image();
+            const cleanName = point.champ.replace(/[^a-zA-Z0-9]/g, '');
+            img.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
+            
+            // Simples mecanismo para atualizar o gráfico quando as imagens carregarem
+            img.onload = () => {
+                loaded++;
+                if (loaded === total || loaded % 5 === 0) onReady(); 
+            };
+            return { ...point, image: img };
+        });
+    },
+
+    render(rawData) {
+        if (chartInstance) chartInstance.destroy();
+
+        // Separa dados e pré-carrega imagens
+        const dataWithImages = this.preloadImages(rawData, () => chartInstance?.update());
+        
+        const vitorias = dataWithImages.filter(d => d.win);
+        const derrotas = dataWithImages.filter(d => !d.win);
+
+        chartInstance = new Chart(UI_ELEMENTS.chartCanvas, {
+            type: 'bubble',
+            plugins: [this.championImagePlugin],
+            data: {
+                datasets: [
+                    { label: 'Vitória', data: vitorias, backgroundColor: 'rgba(83, 131, 232, 0.1)', hoverRadius: 0 },
+                    { label: 'Derrota', data: derrotas, backgroundColor: 'rgba(232, 64, 87, 0.1)', hoverRadius: 0 }
+                ]
             },
-            scales: {
-                x: { 
-                    title: { display: true, text: 'Gold por Minuto (GPM)', color: '#8a92a3' }, 
-                    grid: { color: 'rgba(255,255,255,0.03)' }, 
-                    ticks: { color: '#8a92a3' },
-                    suggestedMin: 0,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#13161d',
+                        titleColor: '#c8aa6e',
+                        bodyColor: '#fff',
+                        callbacks: {
+                            label: c => {
+                                const d = c.raw;
+                                return [` ${d.champ}`, ` Eficiência: ${d.efficiency}%`, ` Dano/min: ${d.y.toFixed(0)}`, ` Gold/min: ${d.x.toFixed(0)}`];
+                            }
+                        }
+                    }
                 },
-                y: { 
-                    title: { display: true, text: 'Dano por Minuto (DPM)', color: '#8a92a3' }, 
-                    grid: { color: 'rgba(255,255,255,0.03)' }, 
-                    ticks: { color: '#8a92a3' },
-                    suggestedMin: 0,
+                scales: {
+                    x: { title: { display: true, text: 'Gold/Min', color: '#8a92a3' }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8a92a3' } },
+                    y: { title: { display: true, text: 'Damage/Min', color: '#8a92a3' }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8a92a3' } }
                 }
             }
-        }
-    });
-}
-
-// ==========================================
-// 6. INICIALIZAÇÃO
-// ==========================================
-async function checkSession() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        window.location.href = "index.html";
-    } else {
-        const user = session.user;
-        const nick = user.user_metadata.lol_nick || "Sem Nick";
-        const nome = user.user_metadata.full_name || "Invocador";
-
-        welcomeMsg.innerText = `Bem-vindo ao Rift, ${nick}.`;
-        userNickDisplay.innerText = nome;
-        loadingScreen.style.display = 'none';
-
-        fetchRealPlayerData("Zekas#2002");
+        });
     }
-}
+};
 
-logoutBtn.addEventListener('click', async () => {
-    const { error } = await supabaseClient.auth.signOut();
-    if (!error) window.location.href = "index.html";
-});
+// ==========================================
+// 5. INTERFACE (UI & EVENTOS)
+// ==========================================
+const UIManager = {
+    updateHeader(nick, stats) {
+        UI_ELEMENTS.welcome.innerText = `Análise: ${nick}`;
+        UI_ELEMENTS.stats.winrate.innerText = stats.winrate;
+        UI_ELEMENTS.stats.kda.innerText = stats.kda;
+        UI_ELEMENTS.stats.mainChampName.innerText = stats.mainChamp.name;
+        UI_ELEMENTS.stats.mainChampCount.innerText = `${stats.mainChamp.count} Partidas`;
+        
+        const cleanName = stats.mainChamp.name.replace(/[^a-zA-Z0-9]/g, '');
+        UI_ELEMENTS.stats.mainChampImg.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
+    },
 
-checkSession();
+    renderSuggestions(list) {
+        UI_ELEMENTS.suggestions.innerHTML = '';
+        list.forEach(nick => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            const [name, tag] = nick.split('#');
+            div.innerHTML = `<span>${name}</span><strong style="font-size:0.8rem; color:#666;">#${tag || ''}</strong>`;
+            
+            div.addEventListener('click', () => App.loadPlayer(nick));
+            UI_ELEMENTS.suggestions.appendChild(div);
+        });
+    },
+
+    toggleSuggestions(show) {
+        UI_ELEMENTS.suggestions.style.display = show ? 'block' : 'none';
+    }
+};
+
+// ==========================================
+// 6. CONTROLADOR PRINCIPAL (APP)
+// ==========================================
+const App = {
+    async init() {
+        // Verifica sessão
+        const session = await PlayerService.checkSession();
+        if (!session) {
+            window.location.href = "index.html";
+            return;
+        }
+
+        const userMeta = session.user.user_metadata;
+        UI_ELEMENTS.welcome.innerText = `Bem-vindo ao Rift, ${userMeta.lol_nick || "Sem Nick"}.`;
+        UI_ELEMENTS.userNick.innerText = userMeta.full_name || "Invocador";
+        UI_ELEMENTS.loading.style.display = 'none';
+
+        // Carrega player padrão
+        this.loadPlayer("Zekas#2002");
+        this.setupListeners();
+    },
+
+    setupListeners() {
+        // Busca
+        UI_ELEMENTS.search.addEventListener('focus', () => this.handleSearchInput());
+        UI_ELEMENTS.search.addEventListener('input', () => this.handleSearchInput());
+        
+        // Fechar sugestões ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!UI_ELEMENTS.search.contains(e.target) && !UI_ELEMENTS.suggestions.contains(e.target)) {
+                UIManager.toggleSuggestions(false);
+            }
+        });
+
+        // Logout
+        UI_ELEMENTS.logoutBtn.addEventListener('click', async () => {
+            const { error } = await PlayerService.logout();
+            if (!error) window.location.href = "index.html";
+        });
+    },
+
+    handleSearchInput() {
+        const term = UI_ELEMENTS.search.value.toLowerCase();
+        const list = term === "" 
+            ? CONFIG.SUGGESTED_NICKS 
+            : CONFIG.SUGGESTED_NICKS.filter(n => n.toLowerCase().includes(term));
+        
+        if (list.length > 0) {
+            UIManager.renderSuggestions(list);
+            UIManager.toggleSuggestions(true);
+        } else {
+            UIManager.toggleSuggestions(false);
+        }
+    },
+
+    async loadPlayer(nick) {
+        UI_ELEMENTS.search.value = nick;
+        UIManager.toggleSuggestions(false);
+        UI_ELEMENTS.welcome.innerText = `Carregando dados de ${nick}...`;
+
+        try {
+            const matches = await PlayerService.fetchHistory(nick);
+            
+            if (matches.length === 0) {
+                alert("Nenhuma partida encontrada.");
+                UI_ELEMENTS.welcome.innerText = `Sem dados: ${nick}`;
+                return;
+            }
+
+            // Calcula Estatísticas
+            const stats = {
+                winrate: StatsCalculator.calculateWinrate(matches),
+                kda: StatsCalculator.calculateAvgKDA(matches),
+                mainChamp: StatsCalculator.findMainChamp(matches)
+            };
+
+            // Atualiza UI e Gráfico
+            UIManager.updateHeader(nick, stats);
+            
+            const chartData = StatsCalculator.processChartData(matches);
+            ChartManager.render(chartData);
+
+        } catch (err) {
+            alert("Erro ao processar dados.");
+        }
+    }
+};
+
+// Iniciar Aplicação
+App.init();
