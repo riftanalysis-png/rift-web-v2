@@ -100,6 +100,7 @@ async function renderizarGraficos(dados) {
             // Para pixels na tela, isso é muito grande (raio 100 = 200px largura).
             // Vou dividir por 3.5 para ficar visualmente agradável (bolhas de ~30px a ~60px).
             
+            // Tenta usar a duração salva, se não existir (partida antiga), calcula.
             let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
             const gpm = d['Gold Earned'] / duracao;
             const rawSize = (gpm / 450) * 100; 
