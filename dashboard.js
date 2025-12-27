@@ -11,7 +11,6 @@ const UI = {
     logout: document.getElementById('logoutBtn')
 };
 
-// Variáveis Globais para guardar as instâncias dos gráficos
 let chartBubble = null;
 let chartBar = null;
 let chartXP = null;
@@ -21,7 +20,7 @@ let chartImpacto = null;
 // 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Dashboard Completo Iniciado");
+    console.log("🚀 Dashboard Boxplot Iniciado");
 
     if (UI.logout) {
         UI.logout.addEventListener('click', async () => {
@@ -40,7 +39,7 @@ function init() {
 }
 
 // =========================================================
-// 3. BUSCA E TRATAMENTO DE DADOS
+// 3. BUSCA DE DADOS
 // =========================================================
 async function buscarDados(nick) {
     console.clear();
@@ -63,13 +62,11 @@ async function buscarDados(nick) {
             linha['Player Name'].toLowerCase().includes(nick.toLowerCase())
         );
 
-        // Remove duplicatas usando Match ID como chave
         const dadosUnicos = Array.from(
             new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
         );
 
         console.log(`✅ ${dadosUnicos.length} partidas únicas carregadas.`);
-        
         renderizarGraficos(dadosUnicos);
 
     } catch (err) {
@@ -78,27 +75,24 @@ async function buscarDados(nick) {
 }
 
 // =========================================================
-// 4. RENDERIZAÇÃO DOS GRÁFICOS
+// 4. RENDERIZAÇÃO
 // =========================================================
 async function renderizarGraficos(dados) {
-    // Para Bolhas e Barras de Farm: Apenas os últimos 20 jogos (Visual limpo)
     const dadosRecentes = dados.slice(-20);
-    
-    // Para Probabilidade e Impacto (Estatísticas): Usa TODOS os dados
     const dadosCompletos = dados; 
 
-    // Carrega imagens antes de desenhar (necessário para o Bubble Chart)
     const imagensMap = await carregarImagensCampeoes(dadosRecentes);
 
-    // Renderiza cada gráfico
     renderizarBubble(dadosRecentes, imagensMap);
     renderizarFarm(dadosRecentes);
     renderizarXPProbability(dadosCompletos);
+    
+    // --- BOXPLOT AQUI ---
     renderizarImpactoXP(dadosCompletos);
 }
 
 // ---------------------------------------------------------
-// A. GRÁFICO DE BOLHAS (Carry Efficiency)
+// A. GRÁFICO DE BOLHAS
 // ---------------------------------------------------------
 function renderizarBubble(dados, imagensMap) {
     const ctx = document.getElementById('graficoPrincipal');
@@ -109,8 +103,6 @@ function renderizarBubble(dados, imagensMap) {
         let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
         const gpm = d['Gold Earned'] / duracao;
 
-        // --- ESCALA DO TAMANHO ---
-        // Se GPM for 450, o raio da bolha será 45px (grande e visível)
         const ESCALA_BASE = 45; 
         const radiusPixel = (gpm / 450) * ESCALA_BASE;
 
@@ -130,7 +122,6 @@ function renderizarBubble(dados, imagensMap) {
         afterDatasetDraw(chart) {
             const { ctx } = chart;
             const meta = chart.getDatasetMeta(0);
-            
             meta.data.forEach((element, index) => {
                 const dataPoint = bubbleData[index];
                 const img = imagensMap[dataPoint.champion];
@@ -147,7 +138,6 @@ function renderizarBubble(dados, imagensMap) {
                 ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
                 ctx.restore();
 
-                // Borda Colorida
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.lineWidth = 3;
@@ -188,7 +178,7 @@ function renderizarBubble(dados, imagensMap) {
 }
 
 // ---------------------------------------------------------
-// B. GRÁFICO DE BARRAS (Farm)
+// B. GRÁFICO DE FARM
 // ---------------------------------------------------------
 function renderizarFarm(dados) {
     const ctx = document.getElementById('graficoFarm');
@@ -222,14 +212,13 @@ function renderizarFarm(dados) {
 }
 
 // ---------------------------------------------------------
-// C. GRÁFICO DE LINHA (Probabilidade XP Diff)
+// C. GRÁFICO DE PROBABILIDADE (Line)
 // ---------------------------------------------------------
 function renderizarXPProbability(dados) {
     const ctx = document.getElementById('graficoXPWinrate');
     if (!ctx) return;
     if (chartXP) chartXP.destroy();
 
-    // Buckets de 500 em 500
     const buckets = {};
     const TAMANHO_BALDE = 500; 
 
@@ -238,7 +227,6 @@ function renderizarXPProbability(dados) {
         const bucketKey = Math.round(xpDiff / TAMANHO_BALDE) * TAMANHO_BALDE;
 
         if (!buckets[bucketKey]) buckets[bucketKey] = { wins: 0, total: 0 };
-        
         buckets[bucketKey].total++;
         if (d['Win Rate %'] === 1) buckets[bucketKey].wins++;
     });
@@ -275,17 +263,12 @@ function renderizarXPProbability(dados) {
                     grid: { color: '#333' },
                     ticks: { callback: (v) => v + '%' }
                 },
-                x: {
-                    title: { display: true, text: 'Vantagem de XP aos 12 min', color: '#aaa' },
-                    grid: { color: '#333' }
-                }
+                x: { title: { display: true, text: 'Vantagem XP @ 12', color: '#aaa' }, grid: { color: '#333' } }
             },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    callbacks: {
-                        label: (ctx) => `Chance: ${ctx.raw.y.toFixed(1)}% (${ctx.raw.total} jogos)`
-                    }
+                    callbacks: { label: (ctx) => `Chance: ${ctx.raw.y.toFixed(1)}%` }
                 }
             }
         }
@@ -293,61 +276,172 @@ function renderizarXPProbability(dados) {
 }
 
 // ---------------------------------------------------------
-// D. GRÁFICO DE BARRAS (Impacto XP Win vs Loss)
+// D. GRÁFICO BOXPLOT MANUAL (Custom Render)
 // ---------------------------------------------------------
 function renderizarImpactoXP(dados) {
     const ctx = document.getElementById('graficoImpactoXP');
     if (!ctx) return;
     if (chartImpacto) chartImpacto.destroy();
 
-    const vitorias = dados.filter(d => d['Win Rate %'] === 1);
-    const derrotas = dados.filter(d => d['Win Rate %'] === 0);
+    // 1. Extrair arrays de XP Diff
+    const xpWins = dados
+        .filter(d => d['Win Rate %'] === 1)
+        .map(d => d["XP Diff 12'"] || d["XP Diff 12"] || 0);
 
-    const somaXP = (lista) => lista.reduce((acc, curr) => {
-        const val = curr["XP Diff 12'"] || curr["XP Diff 12"] || 0;
-        return acc + val;
-    }, 0);
+    const xpLosses = dados
+        .filter(d => d['Win Rate %'] === 0)
+        .map(d => d["XP Diff 12'"] || d["XP Diff 12"] || 0);
 
-    const mediaWin = vitorias.length > 0 ? somaXP(vitorias) / vitorias.length : 0;
-    const mediaLoss = derrotas.length > 0 ? somaXP(derrotas) / derrotas.length : 0;
+    // 2. Calcular Quartis
+    const statsWin = calcularQuartis(xpWins);
+    const statsLoss = calcularQuartis(xpLosses);
+
+    // 3. Plugin para desenhar Bigodes (Whiskers) e Mediana
+    const boxPlotRenderer = {
+        id: 'boxPlotRenderer',
+        afterDatasetsDraw(chart) {
+            const { ctx, scales: { x, y } } = chart;
+            
+            // Loopa pelos 2 datasets (Vitória e Derrota)
+            chart.getDatasetMeta(0).data.forEach((bar, index) => {
+                const stats = index === 0 ? statsWin : statsLoss;
+                if (!stats) return;
+
+                const yPos = bar.y; // Centro vertical da barra
+                const height = bar.height; // Altura da barra
+                
+                // Coordenadas X para cada estatística
+                const xMin = x.getPixelForValue(stats.min);
+                const xQ1 = x.getPixelForValue(stats.q1);
+                const xMedian = x.getPixelForValue(stats.median);
+                const xQ3 = x.getPixelForValue(stats.q3);
+                const xMax = x.getPixelForValue(stats.max);
+
+                ctx.save();
+                ctx.strokeStyle = index === 0 ? '#00BFFF' : '#FF4500'; // Azul ou Vermelho
+                ctx.lineWidth = 2;
+
+                // A. Linha da Mediana (Vertical dentro da caixa)
+                ctx.beginPath();
+                ctx.moveTo(xMedian, yPos - height/2);
+                ctx.lineTo(xMedian, yPos + height/2);
+                ctx.stroke();
+
+                // B. Bigode Esquerdo (Min até Q1)
+                ctx.beginPath();
+                ctx.moveTo(xMin, yPos);
+                ctx.lineTo(xQ1, yPos);
+                ctx.stroke();
+
+                // Cap do Bigode Esquerdo (Traço vertical no Min)
+                ctx.beginPath();
+                ctx.moveTo(xMin, yPos - height/4);
+                ctx.lineTo(xMin, yPos + height/4);
+                ctx.stroke();
+
+                // C. Bigode Direito (Q3 até Max)
+                ctx.beginPath();
+                ctx.moveTo(xQ3, yPos);
+                ctx.lineTo(xMax, yPos);
+                ctx.stroke();
+
+                // Cap do Bigode Direito (Traço vertical no Max)
+                ctx.beginPath();
+                ctx.moveTo(xMax, yPos - height/4);
+                ctx.lineTo(xMax, yPos + height/4);
+                ctx.stroke();
+
+                ctx.restore();
+            });
+        }
+    };
 
     chartImpacto = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Vitórias', 'Derrotas'],
             datasets: [{
-                label: 'Média XP Diff @ 12 min',
-                data: [mediaWin, mediaLoss],
-                backgroundColor: ['rgba(0, 191, 255, 0.6)', 'rgba(255, 69, 0, 0.6)'],
+                label: 'Faixa de XP (Q1 a Q3)',
+                // Usamos "Floating Bars" [Inicio, Fim] para fazer a caixa do meio
+                data: [
+                    [statsWin ? statsWin.q1 : 0, statsWin ? statsWin.q3 : 0],
+                    [statsLoss ? statsLoss.q1 : 0, statsLoss ? statsLoss.q3 : 0]
+                ],
+                backgroundColor: [
+                    'rgba(0, 191, 255, 0.4)', // Azul Transparente
+                    'rgba(255, 69, 0, 0.4)'   // Vermelho Transparente
+                ],
                 borderColor: ['#00BFFF', '#FF4500'],
-                borderWidth: 2,
-                borderRadius: 5
+                borderWidth: 1,
+                borderSkipped: false // Fecha a caixa completa
             }]
         },
         options: {
+            indexAxis: 'y', // Gráfico Horizontal
             responsive: true,
             maintainAspectRatio: false,
-            indexAxis: 'y', // 'y' para barras horizontais (como na sua imagem), remova para verticais
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    callbacks: { label: (ctx) => `Média: ${ctx.raw.toFixed(0)} XP` }
+                    callbacks: {
+                        label: function(context) {
+                            const stats = context.dataIndex === 0 ? statsWin : statsLoss;
+                            return [
+                                `Max: ${stats.max}`,
+                                `Q3 (75%): ${stats.q3}`,
+                                `Mediana: ${stats.median}`,
+                                `Q1 (25%): ${stats.q1}`,
+                                `Min: ${stats.min}`
+                            ];
+                        }
+                    }
                 }
             },
             scales: {
                 x: {
                     grid: { color: '#333' },
                     ticks: { color: '#eee' },
-                    title: { display: true, text: 'Diferença de XP Média', color: '#aaa' }
+                    title: { display: true, text: 'XP Diff (Negativo = Atrás | Positivo = Frente)', color: '#aaa' }
                 },
                 y: { grid: { display: false }, ticks: { color: '#eee', font: { weight: 'bold' } } }
             }
-        }
+        },
+        plugins: [boxPlotRenderer]
     });
 }
 
+// Função Auxiliar de Matemática
+function calcularQuartis(arr) {
+    if (!arr || arr.length === 0) return null;
+    
+    // Ordena numérico
+    arr.sort((a, b) => a - b);
+    
+    const min = arr[0];
+    const max = arr[arr.length - 1];
+    
+    const quantile = (arr, q) => {
+        const pos = (arr.length - 1) * q;
+        const base = Math.floor(pos);
+        const rest = pos - base;
+        if (arr[base + 1] !== undefined) {
+            return Math.floor(arr[base] + rest * (arr[base + 1] - arr[base]));
+        } else {
+            return Math.floor(arr[base]);
+        }
+    };
+
+    return {
+        min: Math.floor(min),
+        q1: quantile(arr, 0.25),
+        median: quantile(arr, 0.50),
+        q3: quantile(arr, 0.75),
+        max: Math.floor(max)
+    };
+}
+
 // ---------------------------------------------------------
-// UTILITÁRIO: CARREGAMENTO DE IMAGENS
+// UTILITÁRIO: IMAGENS
 // ---------------------------------------------------------
 async function carregarImagensCampeoes(dados) {
     const map = {};
@@ -355,12 +449,10 @@ async function carregarImagensCampeoes(dados) {
         return new Promise((resolve) => {
             const img = new Image();
             let champName = d.Champion;
-            // Exceções conhecidas do DataDragon
             if (champName === "FiddleSticks") champName = "Fiddlesticks"; 
             if (champName === "Renata") champName = "RenataGlasc"; 
 
             img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champName}.png`;
-            
             img.onload = () => { map[d.Champion] = img; resolve(); };
             img.onerror = () => { map[d.Champion] = null; resolve(); };
         });
