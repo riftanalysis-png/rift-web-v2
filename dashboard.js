@@ -1,21 +1,21 @@
 // =========================================================
-// 1. CONFIGURAÇÃO & CORES (Sincronizado com seu CSS)
+// 1. CONFIGURAÇÃO & TEMA (Sincronizado com CSS)
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// CORES BASEADAS NAS SUAS VARIÁVEIS CSS
+// CORES DO TEMA (Copiadas das variáveis CSS)
 const THEME = {
     gold: '#c8aa6e',      // --accent-gold
-    red:  '#e84057',      // --lose-red (Para derrotas)
-    blue: '#5383e8',      // --win-blue (Para vitórias/neutro)
+    red:  '#e84057',      // --lose-red
+    blue: '#5383e8',      // --win-blue
     text: '#8a92a3',      // --text-secondary
-    grid: 'rgba(255, 255, 255, 0.05)' // Linhas sutis
+    grid: 'rgba(255, 255, 255, 0.05)' // --border-light
 };
 
-// Configuração Global do Chart.js
+// Configuração Global Chart.js
 Chart.defaults.font.family = "'Segoe UI', sans-serif";
 Chart.defaults.color = THEME.text;
 Chart.defaults.borderColor = THEME.grid;
@@ -25,6 +25,7 @@ const UI = {
     logout: document.getElementById('logoutBtn')
 };
 
+// Guarda as instâncias para poder destruir e recriar
 let charts = {
     bubble: null, bar: null, xpLine: null, xpBox: null,
     rel1: null, rel2: null, rel3: null, rel4: null, rel5: null, rel6: null
@@ -34,7 +35,7 @@ let charts = {
 // 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Dashboard Iniciado");
+    console.log("🚀 Dashboard Final Iniciado");
 
     if (UI.logout) UI.logout.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
@@ -47,7 +48,7 @@ function init() {
 }
 
 // =========================================================
-// 3. BUSCA
+// 3. BUSCA DE DADOS
 // =========================================================
 async function buscarDados(nick) {
     console.clear();
@@ -74,6 +75,7 @@ async function buscarDados(nick) {
             new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
         );
 
+        console.log(`✅ ${dadosUnicos.length} partidas carregadas.`);
         renderizarGraficos(dadosUnicos);
 
     } catch (err) {
@@ -96,7 +98,7 @@ async function renderizarGraficos(dados) {
     renderizarRelacionais(dadosCompletos);
 }
 
-// A. SCATTER HERO (Carry)
+// A. SCATTER PLOT (Dano vs Ouro)
 function renderizarBubble(dados, imagensMap) {
     const ctx = document.getElementById('graficoPrincipal');
     if (!ctx) return;
@@ -134,7 +136,6 @@ function renderizarBubble(dados, imagensMap) {
                 
                 ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); 
                 ctx.lineWidth = 2;
-                // Usa suas cores de vitória/derrota
                 ctx.strokeStyle = dataPoint.win ? THEME.blue : THEME.red; 
                 ctx.stroke();
             });
@@ -171,7 +172,7 @@ function renderizarFarm(dados) {
             datasets: [{ 
                 label: 'CS/Min', 
                 data: dados.map(d => d['Farm/Min']), 
-                backgroundColor: THEME.gold, // Dourado do seu tema
+                backgroundColor: THEME.gold, 
                 borderRadius: 4
             }]
         },
@@ -186,7 +187,7 @@ function renderizarFarm(dados) {
     });
 }
 
-// C. XP PROBABILITY
+// C. XP PROBABILITY (Linha)
 function renderizarXPProbability(dados) {
     const ctx = document.getElementById('graficoXPWinrate');
     if (!ctx) return;
@@ -216,13 +217,13 @@ function renderizarXPProbability(dados) {
             datasets: [{ 
                 label: 'Win Rate %', 
                 data: chartData.map(d => d.y), 
-                borderColor: THEME.gold, 
-                backgroundColor: 'rgba(200, 170, 110, 0.1)', 
+                borderColor: THEME.blue, // Azul para probabilidade
+                backgroundColor: 'rgba(83, 131, 232, 0.1)', 
                 borderWidth: 2, 
                 tension: 0.4, 
                 fill: true,
-                pointBackgroundColor: '#13161d', // Cor do card
-                pointBorderColor: THEME.gold,
+                pointBackgroundColor: '#13161d',
+                pointBorderColor: THEME.blue,
                 pointRadius: 4
             }]
         },
@@ -237,7 +238,7 @@ function renderizarXPProbability(dados) {
     });
 }
 
-// D. XP BOXPLOT (Vertical)
+// D. BOXPLOT VERTICAL (XP Impact)
 function renderizarImpactoXP(dados) {
     const ctx = document.getElementById('graficoImpactoXP');
     if (!ctx) return;
@@ -257,15 +258,20 @@ function renderizarImpactoXP(dados) {
             chart.getDatasetMeta(0).data.forEach((bar, index) => {
                 const stats = statsArray[index];
                 if (!stats) return;
+                
+                // VERTICAL: xPos = centro da barra, width = largura
                 const xPos = bar.x; const width = bar.width;
                 const yMin = y.getPixelForValue(stats.min); const yQ1 = y.getPixelForValue(stats.q1);
                 const yMedian = y.getPixelForValue(stats.median); const yQ3 = y.getPixelForValue(stats.q3);
                 const yMax = y.getPixelForValue(stats.max);
                 
                 ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                // Mediana
                 ctx.beginPath(); ctx.moveTo(xPos - width/2, yMedian); ctx.lineTo(xPos + width/2, yMedian); ctx.stroke(); 
+                // Bigode Inferior
                 ctx.beginPath(); ctx.moveTo(xPos, yMin); ctx.lineTo(xPos, yQ1); ctx.stroke(); 
                 ctx.beginPath(); ctx.moveTo(xPos - width/4, yMin); ctx.lineTo(xPos + width/4, yMin); ctx.stroke(); 
+                // Bigode Superior
                 ctx.beginPath(); ctx.moveTo(xPos, yQ3); ctx.lineTo(xPos, yMax); ctx.stroke(); 
                 ctx.beginPath(); ctx.moveTo(xPos - width/4, yMax); ctx.lineTo(xPos + width/4, yMax); ctx.stroke(); 
                 ctx.restore();
@@ -288,7 +294,8 @@ function renderizarImpactoXP(dados) {
             }]
         },
         options: {
-            indexAxis: 'x', responsive: true, maintainAspectRatio: false,
+            indexAxis: 'x', // Vertical
+            responsive: true, maintainAspectRatio: false,
             scales: { 
                 y: { grid: { color: THEME.grid }, title: { display: true, text: 'Vantagem XP' } }, 
                 x: { grid: { display: false } } 
@@ -299,7 +306,7 @@ function renderizarImpactoXP(dados) {
     });
 }
 
-// E. RELACIONAIS
+// E. GRÁFICOS RELACIONAIS (Regressão)
 function renderizarRelacionais(dados) {
     const configs = [
         { id: 'relChart1', xKey: "Deaths até 12min", yKey: 'Deaths', labelX: 'Mortes @ 12', labelY: 'Total' },
@@ -329,7 +336,7 @@ function renderizarRelacionais(dados) {
                 datasets: [
                     {
                         label: 'Jogo', data: points,
-                        backgroundColor: THEME.blue, // Azul Vitória
+                        backgroundColor: THEME.blue, // Azul para pontos
                         radius: 2, hoverRadius: 4
                     },
                     {
@@ -352,7 +359,7 @@ function renderizarRelacionais(dados) {
     });
 }
 
-// Funções Auxiliares (Regressão, Quartis, Imagens)
+// Funções Matemáticas e Utilitários
 function calcularQuartis(arr) {
     if (!arr || arr.length === 0) return null;
     arr.sort((a, b) => a - b);
