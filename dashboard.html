@@ -3,301 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEXUS | Sesshomaru Edition</title>
+    <title>Nexus Dashboard</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-    <style>
-        :root {
-            /* 🐺 PALETA SESSHOMARU */
-            --bg-void:    #0F1115; /* Fundo Principal */
-            --bg-card:    #15171C; /* Fundo Card (Levemente mais claro) */
-            --border:     #23262E; /* Bordas Sutis */
-            --border-hov: #3A3F4B; /* Borda Hover */
-            
-            --text-main:  #F5F5F2; /* Branco Gelo */
-            --text-muted: #8A8F98; /* Cinza Metal */
-            
-            --gold:       #D4AF37; /* Nobreza / Vitória */
-            --red:        #B22222; /* Sangue / Derrota */
-            --blue:       #2C4F7C; /* Frio / Controle */
-            
-            --glow:       rgba(212, 175, 55, 0.15); /* Brilho Dourado */
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-
-        body {
-            background-color: var(--bg-void);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* --- HEADER (GLASSMORPHISM) --- */
-        header {
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            background: rgba(15, 17, 21, 0.85);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .brand {
-            font-size: 0.9rem;
-            font-weight: 600;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .brand span { color: var(--gold); font-size: 1.2rem; }
-
-        .search-wrapper input {
-            background: #090A0D;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 10px 16px;
-            border-radius: 8px;
-            width: 320px;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-        }
-        .search-wrapper input:focus {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px var(--glow);
-            outline: none;
-        }
-
-        button.logout {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        button.logout:hover { color: var(--red); }
-
-        /* --- MAIN LAYOUT --- */
-        main {
-            padding: 2.5rem;
-            max-width: 1600px;
-            margin: 0 auto;
-            width: 100%;
-            flex: 1;
-        }
-
-        /* Títulos de Seção Minimalistas */
-        .section-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--text-muted);
-            margin: 40px 0 16px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .section-label::after {
-            content: '';
-            height: 1px;
-            flex: 1;
-            background: var(--border);
-        }
-
-        /* --- BENTO GRID SYSTEM --- */
-        .bento-grid {
-            display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            gap: 24px;
-            auto-rows: minmax(auto, auto);
-        }
-
-        /* Classes de Tamanho */
-        .col-12 { grid-column: span 12; }
-        .col-8  { grid-column: span 8; }
-        .col-6  { grid-column: span 6; }
-        .col-4  { grid-column: span 4; }
-
-        /* Responsividade */
-        @media (max-width: 1200px) {
-            .col-8, .col-4 { grid-column: span 12; }
-        }
-        @media (max-width: 768px) {
-            .col-6 { grid-column: span 12; }
-            main { padding: 1rem; }
-            .grid-relational { grid-template-columns: 1fr; }
-        }
-
-        /* --- CARD DESIGN --- */
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            transition: border-color 0.3s ease;
-        }
-        .card:hover {
-            border-color: var(--border-hov);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-        }
-
-        .card-titles { display: flex; flex-direction: column; gap: 4px; }
-        
-        .card-title { 
-            font-size: 0.95rem; 
-            font-weight: 500; 
-            color: var(--text-main); 
-        }
-        
-        .card-subtitle { 
-            font-size: 0.75rem; 
-            color: var(--text-muted); 
-            font-weight: 300;
-        }
-
-        /* Legend dots */
-        .legend { display: flex; gap: 12px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; }
-        .gold { background: var(--gold); box-shadow: 0 0 8px var(--glow); }
-        .red { background: var(--red); }
-        .blue { background: var(--blue); }
-
-        /* Containers de Gráfico */
-        .h-large  { height: 400px; position: relative; width: 100%; }
-        .h-medium { height: 300px; position: relative; width: 100%; }
-        .h-small  { height: 200px; position: relative; width: 100%; }
-
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <header>
-        <div class="brand"><span>✦</span> Nexus Analytics</div>
-        <div class="search-wrapper">
-            <input type="text" id="playerSearch" placeholder="Pesquisar Jogador (Ex: Zekas#2002)...">
-        </div>
-        <button id="logoutBtn" class="logout">SAIR</button>
-    </header>
+    <div class="dashboard-container">
+        
+        <aside class="sidebar">
+            <div class="brand">
+                <h3><span>⚡</span> NEXUS</h3>
+            </div>
+            
+            <nav>
+                <a href="#" class="active"><i class="fas fa-chart-pie"></i> Dashboard</a>
+                <a href="#"><i class="fas fa-users"></i> Jogadores</a>
+                <a href="#"><i class="fas fa-trophy"></i> Rankings</a>
+                <a href="#"><i class="fas fa-cog"></i> Configurações</a>
+            </nav>
 
-    <main>
-        
-        <div class="section-label">Performance & Eficiência</div>
-        
-        <div class="bento-grid">
-            <div class="card col-8">
-                <div class="card-header">
-                    <div class="card-titles">
-                        <div class="card-title">Eficiência de Carry</div>
-                        <div class="card-subtitle">Conversão de Ouro em Dano (Tamanho = GPM)</div>
+            <div class="user-info">
+                <button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Sair</button>
+            </div>
+        </aside>
+
+        <main class="content">
+            
+            <header class="dashboard-header">
+                <div>
+                    <h1>Visão Geral</h1>
+                    <p style="color: var(--text-secondary); margin-top: 5px;">Análise de Performance e Estatísticas</p>
+                </div>
+
+                <div class="search-container">
+                    <div class="input-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="playerSearch" placeholder="Buscar Jogador (Ex: Zekas#2002)...">
                     </div>
-                    <div class="legend">
-                        <div style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-muted);">
-                            <span class="dot gold"></span> Vitória
+                </div>
+            </header>
+
+            <h3 style="color: var(--accent-gold); margin-top: 20px; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;">Performance de Carry</h3>
+            
+            <div class="stats-grid">
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <h3>Eficiência (Dano vs Ouro)</h3>
+                        <div class="chart-legend">
+                            <span style="color: var(--win-blue);"><i class="fas fa-circle"></i> Vitória</span>
+                            <span style="color: var(--lose-red);"><i class="fas fa-circle"></i> Derrota</span>
                         </div>
-                        <div style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-muted);">
-                            <span class="dot red"></span> Derrota
-                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="graficoPrincipal"></canvas>
                     </div>
                 </div>
-                <div class="h-large">
-                    <canvas id="graficoPrincipal"></canvas>
-                </div>
-            </div>
 
-            <div class="card col-4">
-                <div class="card-header">
-                    <div class="card-titles">
-                        <div class="card-title">Consistência de Farm</div>
-                        <div class="card-subtitle">CS por Minuto</div>
+                <div class="card">
+                    <div class="chart-header">
+                        <h3>Farm (CS/Min)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="graficoFarm"></canvas>
                     </div>
                 </div>
-                <div class="h-large">
-                    <canvas id="graficoFarm"></canvas>
-                </div>
             </div>
-        </div>
 
-        <div class="section-label">Controle de Snowball</div>
-        
-        <div class="bento-grid">
-            <div class="card col-6">
-                <div class="card-header">
-                    <div class="card-titles">
-                        <div class="card-title">Probabilidade de Vitória</div>
-                        <div class="card-subtitle">Baseado na vantagem de XP aos 12 min</div>
+            <h3 style="color: var(--accent-gold); margin-top: 40px; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;">Controle de Jogo</h3>
+            
+            <div class="stats-grid">
+                <div class="card">
+                    <div class="chart-header">
+                        <h3>Chance de Vitória (XP @ 12)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="graficoXPWinrate"></canvas>
                     </div>
                 </div>
-                <div class="h-medium">
-                    <canvas id="graficoXPWinrate"></canvas>
-                </div>
-            </div>
 
-            <div class="card col-6">
-                <div class="card-header">
-                    <div class="card-titles">
-                        <div class="card-title">Distribuição de XP (Boxplot)</div>
-                        <div class="card-subtitle">Variação de vantagem em Vitórias vs Derrotas</div>
+                <div class="card">
+                    <div class="chart-header">
+                        <h3>Distribuição de XP (Boxplot)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="graficoImpactoXP"></canvas>
                     </div>
                 </div>
-                <div class="h-medium">
-                    <canvas id="graficoImpactoXP"></canvas>
+            </div>
+
+            <h3 style="color: var(--accent-gold); margin-top: 40px; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;">Análise Relacional</h3>
+            
+            <div class="stats-grid">
+                <div class="card">
+                    <h3>Mortes @ 12 vs Totais</h3>
+                    <div style="height: 200px; position: relative;"><canvas id="relChart1"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>Visão/Min vs KP%</h3>
+                    <div style="height: 200px; position: relative;"><canvas id="relChart2"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>Mortes @ 12 vs XP Diff</h3>
+                    <div style="height: 200px; position: relative;"><canvas id="relChart3"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>KP% vs XP Diff</h3>
+                    <div style="height: 200px; position: relative;"><canvas id="relChart4"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>Gold Diff vs CS Diff</h3>
+                    <div style="height: 200px; position: relative;"><canvas id="relChart5"></canvas></div>
+                </div>
+                <div class="card">
+                    <h3>Mortes vs KP%</h3>
+                    <div style="height: 200px; position: relative;"><canvas id="relChart6"></canvas></div>
                 </div>
             </div>
-        </div>
 
-        <div class="section-label">Análise Relacional</div>
-        
-        <div class="bento-grid">
-            <div class="card col-4">
-                <div class="card-header"><div class="card-subtitle">Mortes @ 12 vs Mortes Totais</div></div>
-                <div class="h-small"><canvas id="relChart1"></canvas></div>
-            </div>
-            <div class="card col-4">
-                <div class="card-header"><div class="card-subtitle">Visão/Min vs Kill Part</div></div>
-                <div class="h-small"><canvas id="relChart2"></canvas></div>
-            </div>
-            <div class="card col-4">
-                <div class="card-header"><div class="card-subtitle">Mortes @ 12 vs XP Diff</div></div>
-                <div class="h-small"><canvas id="relChart3"></canvas></div>
-            </div>
-            <div class="card col-4">
-                <div class="card-header"><div class="card-subtitle">Kill Part vs XP Diff</div></div>
-                <div class="h-small"><canvas id="relChart4"></canvas></div>
-            </div>
-            <div class="card col-4">
-                <div class="card-header"><div class="card-subtitle">Gold Diff vs CS Diff</div></div>
-                <div class="h-small"><canvas id="relChart5"></canvas></div>
-            </div>
-            <div class="card col-4">
-                <div class="card-header"><div class="card-subtitle">Mortes Totais vs Kill Part</div></div>
-                <div class="h-small"><canvas id="relChart6"></canvas></div>
-            </div>
-        </div>
+        </main>
+    </div>
 
-    </main>
     <script src="dashboard.js"></script>
 </body>
 </html>
