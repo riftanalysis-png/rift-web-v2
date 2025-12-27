@@ -91,83 +91,99 @@ async function buscarDados(nick) {
 }
 
 // =========================================================
-// 4. FUNÇÕES DE RENDERIZAÇÃO (GRÁFICOS E DOM)
+// 4. FUNÇÕES DE RENDERIZAÇÃO (ATUALIZADO PARA BOLHAS)
 // =========================================================
-function atualizarInterface(dados) {
-    // Aqui você pode atualizar cards de texto (Média de KDA, Winrate, etc) se tiver
-    // Exemplo: document.getElementById('kda-display').innerText = calcularMediaKDA(dados);
 
-    // Renderizar os Gráficos
+function atualizarInterface(dados) {
+    // Chama a função assíncrona de gráficos
     renderizarGraficos(dados);
 }
 
-function renderizarGraficos(dados) {
-    // Prepara os arrays para o Chart.js
-    // Pegamos os últimos 10 jogos para não poluir demais o gráfico
-    const dadosRecentes = dados.slice(-10); 
-    
-    const labels = dadosRecentes.map(d => `${d.Champion} (${d.DataFormatada.split(' ')[0]})`);
-    const goldData = dadosRecentes.map(d => d['Gold Earned']);
-    const damageData = dadosRecentes.map(d => d['Total Damage Dealt']);
-    const csData = dadosRecentes.map(d => d['Farm/Min']);
+async function renderizarGraficos(dados) {
+    // 1. Prepara os dados (Limitando aos últimos 20 para não poluir visualmente)
+    const dadosRecentes = dados.slice(-20);
 
-    // --- GRÁFICO 1: OURO E DANO ---
-    const ctx1 = document.getElementById('graficoPrincipal'); // Verifique se tem esse ID no HTML
+    // 2. Carrega as imagens dos campeões ANTES de criar o gráfico
+    // Precisamos disso porque o Chart.js precisa do objeto Image pronto
+    const imagensMap = await carregarImagensCampeoes(dadosRecentes);
+
+    // --- GRÁFICO 1: BOLHAS (DANO vs OURO) ---
+    const ctx1 = document.getElementById('graficoPrincipal');
+    
     if (ctx1) {
-        if (chartGold) chartGold.destroy(); // Destrói anterior se existir
+        if (chartGold) chartGold.destroy();
+
+        // Configuração dos dados para o formato Bubble
+        const bubbleData = dadosRecentes.map(d => {
+            // Sua Fórmula de Tamanho: (GoldMin / 450 * 100)
+            // Nota: Dividi por 5 no final para o raio ficar visualmente agradável na tela (entre 10px e 30px)
+            const rawSize = (d['Gold/Min'] / 450) * 100;
+            const visualSize = rawSize / 4; 
+
+            return {
+                x: d['Damage/Min'],
+                y: d['Gold/Min'],
+                r: visualSize, // Raio da bolha
+                champion: d['Champion'], // Guardamos o nome para usar no tooltip
+                win: d['Win Rate %'] === 1 // Guardamos se ganhou para a cor
+            };
+        });
 
         chartGold = new Chart(ctx1, {
-            type: 'line',
+            type: 'bubble',
             data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Ouro Total',
-                        data: goldData,
-                        borderColor: '#FFD700', // Dourado
-                        backgroundColor: 'rgba(255, 215, 0, 0.1)',
-                        yAxisID: 'y',
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Dano Causado',
-                        data: damageData,
-                        borderColor: '#FF4500', // Laranja Avermelhado
-                        backgroundColor: 'rgba(255, 69, 0, 0.1)',
-                        yAxisID: 'y1', // Eixo separado
-                        tension: 0.3
-                    }
-                ]
+                datasets: [{
+                    label: 'Performance',
+                    data: bubbleData,
+                    // Lógica para colocar a IMAGEM no lugar da bolha
+                    pointStyle: bubbleData.map(d => imagensMap[d.champion]), 
+                    
+                    // Cor da Borda (Azul = Win, Vermelho = Loss)
+                    borderColor: bubbleData.map(d => d.win ? '#00BFFF' : '#FF4500'),
+                    borderWidth: 3, // Borda grossa para ver bem a cor
+                    
+                    // Fundo levemente transparente caso a imagem falhe
+                    backgroundColor: bubbleData.map(d => d.win ? 'rgba(0, 191, 255, 0.2)' : 'rgba(255, 69, 0, 0.2)'),
+                }]
             },
             options: {
                 responsive: true,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
+                maintainAspectRatio: false, // Permite ajustar altura via CSS
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const d = context.raw;
+                                return `${d.champion}: ${d.x.toFixed(0)} Dano/min, ${d.y.toFixed(0)} Gold/min`;
+                            }
+                        }
+                    },
+                    legend: { display: false } // Esconde legenda pois cada ponto é único
                 },
                 scales: {
-                    y: {
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        title: { display: true, text: 'Ouro' }
+                    x: {
+                        title: { display: true, text: 'Dano por Minuto', color: '#ccc' },
+                        grid: { color: '#333' },
+                        ticks: { color: '#aaa' }
                     },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        title: { display: true, text: 'Dano' },
-                        grid: { drawOnChartArea: false }
+                    y: {
+                        title: { display: true, text: 'Ouro por Minuto', color: '#ccc' },
+                        grid: { color: '#333' },
+                        ticks: { color: '#aaa' }
                     }
                 }
             }
         });
     }
 
-    // --- GRÁFICO 2: FARM POR MINUTO ---
-    const ctx2 = document.getElementById('graficoFarm'); // Verifique se tem esse ID no HTML
+    // --- GRÁFICO 2: MANTÉM O DE FARM ---
+    const ctx2 = document.getElementById('graficoFarm');
     if (ctx2) {
         if (chartDamage) chartDamage.destroy();
+        
+        // Dados simples para o gráfico de barras
+        const labels = dadosRecentes.map(d => `${d.Champion}`);
+        const csData = dadosRecentes.map(d => d['Farm/Min']);
 
         chartDamage = new Chart(ctx2, {
             type: 'bar',
@@ -183,11 +199,10 @@ function renderizarGraficos(dados) {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: { display: true, text: 'CS/Min' }
-                    }
+                    y: { beginAtZero: true, grid: { color: '#333' } },
+                    x: { grid: { display: false } }
                 }
             }
         });
@@ -195,18 +210,36 @@ function renderizarGraficos(dados) {
 }
 
 // =========================================================
-// 5. UTILITÁRIOS
+// FUNÇÃO AUXILIAR: CARREGAR IMAGENS
 // =========================================================
-function formatarData(timestamp) {
-    if (!timestamp) return "";
-    const data = new Date(timestamp);
-    return data.toLocaleString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit'
-    });
-}
+async function carregarImagensCampeoes(dados) {
+    const map = {};
+    const promessas = dados.map(d => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            // URL Oficial da Riot (DataDragon) - Versão 14.1.1 (pode atualizar se quiser)
+            // Tratamento simples para nomes (Ex: Wukong no DB as vezes é MonkeyKing, mas geralmente a API já manda certo)
+            let champName = d.Champion;
+            if(champName === "FiddleSticks") champName = "Fiddlesticks"; 
 
+            img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champName}.png`;
+            img.width = 40; // Tamanho base
+            img.height = 40;
+            
+            img.onload = () => {
+                map[d.Champion] = img;
+                resolve();
+            };
+            img.onerror = () => {
+                // Se falhar (ex: novo champ), usa uma bolha padrão
+                map[d.Champion] = 'circle'; 
+                resolve();
+            };
+        });
+    });
+
+    await Promise.all(promessas);
+    return map;
+}
 // Inicia
 init();
