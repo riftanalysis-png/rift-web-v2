@@ -1,23 +1,22 @@
 // =========================================================
-// 1. CONFIGURAÇÃO & TEMA (SESSHOMARU)
+// 1. CONFIGURAÇÃO & CORES (Sincronizado com seu CSS)
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// CORES DA PALETA
+// CORES BASEADAS NAS SUAS VARIÁVEIS CSS
 const THEME = {
-    gold: '#D4AF37',
-    red:  '#B22222',
-    blue: '#2C4F7C',
-    text: '#8A8F98', // Texto secundário
-    grid: '#23262E'  // Grade sutil
+    gold: '#c8aa6e',      // --accent-gold
+    red:  '#e84057',      // --lose-red (Para derrotas)
+    blue: '#5383e8',      // --win-blue (Para vitórias/neutro)
+    text: '#8a92a3',      // --text-secondary
+    grid: 'rgba(255, 255, 255, 0.05)' // Linhas sutis
 };
 
-// Defaults do Chart.js para o estilo Minimalista
-Chart.defaults.font.family = "'Inter', sans-serif";
-Chart.defaults.font.size = 11;
+// Configuração Global do Chart.js
+Chart.defaults.font.family = "'Segoe UI', sans-serif";
 Chart.defaults.color = THEME.text;
 Chart.defaults.borderColor = THEME.grid;
 
@@ -35,7 +34,7 @@ let charts = {
 // 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Nexus Analytics Iniciado");
+    console.log("🚀 Dashboard Iniciado");
 
     if (UI.logout) UI.logout.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
@@ -135,7 +134,8 @@ function renderizarBubble(dados, imagensMap) {
                 
                 ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); 
                 ctx.lineWidth = 2;
-                ctx.strokeStyle = dataPoint.win ? THEME.gold : THEME.red; 
+                // Usa suas cores de vitória/derrota
+                ctx.strokeStyle = dataPoint.win ? THEME.blue : THEME.red; 
                 ctx.stroke();
             });
         }
@@ -150,8 +150,8 @@ function renderizarBubble(dados, imagensMap) {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw.champion} | ${ctx.raw.rawDamage} Dano` } } },
             scales: { 
-                x: { title: { display: true, text: 'Dano/Min' }, grid: { color: THEME.grid } }, 
-                y: { title: { display: true, text: 'Ouro/Min' }, grid: { color: THEME.grid } } 
+                x: { title: { display: true, text: 'Dano/Min', color: THEME.text }, grid: { color: THEME.grid } }, 
+                y: { title: { display: true, text: 'Ouro/Min', color: THEME.text }, grid: { color: THEME.grid } } 
             }
         },
         plugins: [imageProfilePlugin]
@@ -171,10 +171,8 @@ function renderizarFarm(dados) {
             datasets: [{ 
                 label: 'CS/Min', 
                 data: dados.map(d => d['Farm/Min']), 
-                backgroundColor: THEME.blue, 
-                borderRadius: 2,
-                barThickness: 'flex',
-                maxBarThickness: 30
+                backgroundColor: THEME.gold, // Dourado do seu tema
+                borderRadius: 4
             }]
         },
         options: {
@@ -182,7 +180,7 @@ function renderizarFarm(dados) {
             plugins: { legend: { display: false } },
             scales: { 
                 y: { beginAtZero: true, grid: { color: THEME.grid } }, 
-                x: { display: false, grid: { display: false } } // Limpeza visual
+                x: { display: false, grid: { display: false } }
             }
         }
     });
@@ -219,11 +217,11 @@ function renderizarXPProbability(dados) {
                 label: 'Win Rate %', 
                 data: chartData.map(d => d.y), 
                 borderColor: THEME.gold, 
-                backgroundColor: 'rgba(212, 175, 55, 0.05)', 
+                backgroundColor: 'rgba(200, 170, 110, 0.1)', 
                 borderWidth: 2, 
                 tension: 0.4, 
                 fill: true,
-                pointBackgroundColor: '#0F1115',
+                pointBackgroundColor: '#13161d', // Cor do card
                 pointBorderColor: THEME.gold,
                 pointRadius: 4
             }]
@@ -264,12 +262,12 @@ function renderizarImpactoXP(dados) {
                 const yMedian = y.getPixelForValue(stats.median); const yQ3 = y.getPixelForValue(stats.q3);
                 const yMax = y.getPixelForValue(stats.max);
                 
-                ctx.save(); ctx.strokeStyle = '#F5F5F2'; ctx.lineWidth = 1.5;
-                ctx.beginPath(); ctx.moveTo(xPos - width/2, yMedian); ctx.lineTo(xPos + width/2, yMedian); ctx.stroke(); // Mediana
-                ctx.beginPath(); ctx.moveTo(xPos, yMin); ctx.lineTo(xPos, yQ1); ctx.stroke(); // Bigode Baixo
-                ctx.beginPath(); ctx.moveTo(xPos - width/4, yMin); ctx.lineTo(xPos + width/4, yMin); ctx.stroke(); // Cap Baixo
-                ctx.beginPath(); ctx.moveTo(xPos, yQ3); ctx.lineTo(xPos, yMax); ctx.stroke(); // Bigode Cima
-                ctx.beginPath(); ctx.moveTo(xPos - width/4, yMax); ctx.lineTo(xPos + width/4, yMax); ctx.stroke(); // Cap Cima
+                ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(xPos - width/2, yMedian); ctx.lineTo(xPos + width/2, yMedian); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(xPos, yMin); ctx.lineTo(xPos, yQ1); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(xPos - width/4, yMin); ctx.lineTo(xPos + width/4, yMin); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(xPos, yQ3); ctx.lineTo(xPos, yMax); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(xPos - width/4, yMax); ctx.lineTo(xPos + width/4, yMax); ctx.stroke(); 
                 ctx.restore();
             });
         }
@@ -283,8 +281,8 @@ function renderizarImpactoXP(dados) {
                 label: 'Distribuição XP',
                 data: [[statsWin ? statsWin.q1 : 0, statsWin ? statsWin.q3 : 0], [statsLoss ? statsLoss.q1 : 0, statsLoss ? statsLoss.q3 : 0]],
                 customStats: [statsWin, statsLoss],
-                backgroundColor: [THEME.gold + '66', THEME.red + '66'], 
-                borderColor: [THEME.gold, THEME.red], 
+                backgroundColor: [THEME.blue + '66', THEME.red + '66'], 
+                borderColor: [THEME.blue, THEME.red], 
                 borderWidth: 1, borderSkipped: false,
                 barThickness: 60
             }]
@@ -331,7 +329,7 @@ function renderizarRelacionais(dados) {
                 datasets: [
                     {
                         label: 'Jogo', data: points,
-                        backgroundColor: THEME.blue,
+                        backgroundColor: THEME.blue, // Azul Vitória
                         radius: 2, hoverRadius: 4
                     },
                     {
@@ -346,15 +344,15 @@ function renderizarRelacionais(dados) {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { display: false }, title: { display: true, text: `R² = ${reg.r2}`, color: THEME.text, font: { size: 9 } } },
                 scales: { 
-                    x: { title: { display: true, text: cfg.labelX }, grid: { display: false } }, 
-                    y: { title: { display: true, text: cfg.labelY }, grid: { color: THEME.grid } } 
+                    x: { title: { display: true, text: cfg.labelX, font:{size:10} }, grid: { display: false } }, 
+                    y: { title: { display: true, text: cfg.labelY, font:{size:10} }, grid: { color: THEME.grid } } 
                 }
             }
         });
     });
 }
 
-// Funções Auxiliares
+// Funções Auxiliares (Regressão, Quartis, Imagens)
 function calcularQuartis(arr) {
     if (!arr || arr.length === 0) return null;
     arr.sort((a, b) => a - b);
