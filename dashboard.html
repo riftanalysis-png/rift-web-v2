@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Dashboard</title>
+    <title>Nexus Analytics | Sesshomaru Edition</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -48,7 +48,7 @@
                 </div>
             </header>
 
-            <h3 style="color: var(--accent-gold); margin-top: 20px; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;">Performance de Carry</h3>
+            <h3 class="section-title">Performance de Carry</h3>
             
             <div class="stats-grid">
                 <div class="card chart-card">
@@ -59,7 +59,7 @@
                             <span style="color: var(--lose-red);"><i class="fas fa-circle"></i> Derrota</span>
                         </div>
                     </div>
-                    <div class="chart-container">
+                    <div class="chart-container tall">
                         <canvas id="graficoPrincipal"></canvas>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
                 </div>
             </div>
 
-            <h3 style="color: var(--accent-gold); margin-top: 40px; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;">Controle de Jogo</h3>
+            <h3 class="section-title">Controle & Estratégia</h3>
             
             <div class="stats-grid">
                 <div class="card">
@@ -96,32 +96,32 @@
                 </div>
             </div>
 
-            <h3 style="color: var(--accent-gold); margin-top: 40px; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;">Análise Relacional</h3>
+            <h3 class="section-title">Análise Relacional</h3>
             
             <div class="stats-grid">
                 <div class="card">
-                    <h3>Mortes @ 12 vs Totais</h3>
-                    <div style="height: 200px; position: relative;"><canvas id="relChart1"></canvas></div>
+                    <div class="chart-header"><h3>Mortes @ 12 vs Totais</h3></div>
+                    <div class="chart-container small"><canvas id="relChart1"></canvas></div>
                 </div>
                 <div class="card">
-                    <h3>Visão/Min vs KP%</h3>
-                    <div style="height: 200px; position: relative;"><canvas id="relChart2"></canvas></div>
+                    <div class="chart-header"><h3>Visão/Min vs KP%</h3></div>
+                    <div class="chart-container small"><canvas id="relChart2"></canvas></div>
                 </div>
                 <div class="card">
-                    <h3>Mortes @ 12 vs XP Diff</h3>
-                    <div style="height: 200px; position: relative;"><canvas id="relChart3"></canvas></div>
+                    <div class="chart-header"><h3>Mortes @ 12 vs XP Diff</h3></div>
+                    <div class="chart-container small"><canvas id="relChart3"></canvas></div>
                 </div>
                 <div class="card">
-                    <h3>KP% vs XP Diff</h3>
-                    <div style="height: 200px; position: relative;"><canvas id="relChart4"></canvas></div>
+                    <div class="chart-header"><h3>KP% vs XP Diff</h3></div>
+                    <div class="chart-container small"><canvas id="relChart4"></canvas></div>
                 </div>
                 <div class="card">
-                    <h3>Gold Diff vs CS Diff</h3>
-                    <div style="height: 200px; position: relative;"><canvas id="relChart5"></canvas></div>
+                    <div class="chart-header"><h3>Gold Diff vs CS Diff</h3></div>
+                    <div class="chart-container small"><canvas id="relChart5"></canvas></div>
                 </div>
                 <div class="card">
-                    <h3>Mortes vs KP%</h3>
-                    <div style="height: 200px; position: relative;"><canvas id="relChart6"></canvas></div>
+                    <div class="chart-header"><h3>Mortes vs KP%</h3></div>
+                    <div class="chart-container small"><canvas id="relChart6"></canvas></div>
                 </div>
             </div>
 
