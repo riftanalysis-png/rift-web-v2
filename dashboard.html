@@ -8,13 +8,17 @@
     <link rel="stylesheet" href="style.css">
     
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#050607; z-index:9999; display:flex; justify-content:center; align-items:center; color: #c8aa6e;">
-        <h2 style="font-family: sans-serif; font-weight: 300;">Carregando dados do Invocador...</h2>
+        <div style="text-align: center;">
+            <h2 style="font-family: sans-serif; font-weight: 300; margin-bottom: 10px;">Carregando Rift Analysis...</h2>
+            <small style="color: #666;">Conectando ao Banco de Dados</small>
+        </div>
     </div>
 
     <div class="dashboard-container">
@@ -26,55 +30,51 @@
             
             <nav>
                 <a href="#" class="active"><i class="material-icons">dashboard</i> Visão Geral</a>
-                <a href="#"><i class="material-icons">bar_chart</i> Partidas</a>
-                <a href="#"><i class="material-icons">person</i> Perfil</a>
-                <a href="#"><i class="material-icons">settings</i> Configurações</a>
-            </nav>
+                </nav>
 
             <div class="user-info">
-                <p id="userNickDisplay" style="color: #8a92a3; font-size: 0.9rem; margin-bottom: 10px;">Carregando...</p>
+                <p id="userNickDisplay" style="color: #8a92a3; font-size: 0.9rem; margin-bottom: 10px;">Visitante</p>
                 <button id="logoutBtn">Sair</button>
             </div>
         </aside>
 
         <main class="content">
-           <header class="dashboard-header">
-    <div class="header-content">
-        <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
-        <p style="color: #8a92a3; margin-top: 5px;">Análise de performance e eficiência.</p>
-    </div>
+            
+            <header class="dashboard-header">
+                <div class="header-content">
+                    <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
+                    <p style="color: #8a92a3; margin-top: 5px;">Digite um nick para analisar a performance.</p>
+                </div>
 
-    <div class="search-container">
-        <div class="input-wrapper">
-            <i class="material-icons search-icon">search</i>
-            <input type="text" id="playerSearch" placeholder="Buscar Invocador..." autocomplete="off">
-        </div>
-        
-        <div class="suggestions-box" id="suggestionsBox">
-            </div>
-    </div>
-</header>
+                <div class="search-container">
+                    <div class="input-wrapper">
+                        <i class="material-icons search-icon">search</i>
+                        <input type="text" id="playerSearch" placeholder="Buscar Invocador..." autocomplete="off">
+                    </div>
+                    <div class="suggestions-box" id="suggestionsBox"></div>
+                </div>
+            </header>
 
             <div class="stats-grid">
                 
                 <div class="card">
                     <h3>Winrate Geral</h3>
-                    <p class="big-number">52.4%</p>
+                    <p class="big-number" id="valWinrate">-</p>
                 </div>
                 
                 <div class="card">
                     <h3>KDA Médio</h3>
-                    <p class="big-number">3.4 : 1</p>
+                    <p class="big-number" id="valKDA">-</p>
                 </div>
 
                 <div class="card">
                     <h3>Campeão Mais Jogado</h3>
                     <div style="margin-top: 15px;">
                         <div class="champ-badge">
-                            <img src="https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Jhin.png" alt="Campeão">
-                            <span>Jhin</span>
+                            <img id="imgMainChamp" src="https://ddragon.leagueoflegends.com/cdn/14.1.1/img/profileicon/29.png" alt="Campeão">
+                            <span id="txtMainChamp">...</span>
                         </div>
-                        <p style="color: #8a92a3; font-size: 0.85rem; margin-top: 8px;">24 Partidas (60% WR)</p>
+                        <p id="txtMainChampStats" style="color: #8a92a3; font-size: 0.85rem; margin-top: 8px;">-</p>
                     </div>
                 </div>
 
@@ -82,8 +82,8 @@
                     <div class="chart-header">
                         <h3>Eficiência de Recursos</h3>
                         <div class="chart-legend">
-                            <span style="color: #5383e8;"><i class="material-icons">circle</i> Vitória</span>
-                            <span style="color: #e84057;"><i class="material-icons">circle</i> Derrota</span>
+                            <span style="color: #5383e8;"><i class="material-icons" style="font-size: 10px;">circle</i> Vitória</span>
+                            <span style="color: #e84057;"><i class="material-icons" style="font-size: 10px;">circle</i> Derrota</span>
                         </div>
                     </div>
                     
@@ -96,9 +96,7 @@
         </main>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="dashboard.js"></script>
 
 </body>
 </html>
-
