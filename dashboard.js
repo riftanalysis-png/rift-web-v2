@@ -372,7 +372,7 @@ function renderizarImpactoXP(dados) {
             }]
         },
         options: {
-            indexAxis: 'y', // Horizontal
+            indexAxis: 'x', // Horizontal
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
