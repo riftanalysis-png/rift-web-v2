@@ -83,8 +83,9 @@ async function fetchRealPlayerData(nick) {
     welcomeMsg.innerText = `Carregando dados de ${nick}...`;
 
     try {
+        // CORREÇÃO AQUI: Mudamos de 'partidas_soloq' para 'partidas_br'
         const { data, error } = await supabaseClient
-            .from('partidas_soloq') 
+            .from('partidas_br') 
             .select('*')
             .ilike('Player Name', nick);
 
@@ -136,14 +137,10 @@ async function fetchRealPlayerData(nick) {
             const gpm = parseFloat(match['Gold/Min']) || 1; 
             const isWin = match['Win Rate %'] == 1 || match['Win Rate %'] == 100;
 
-            // === AQUI ESTÁ O SEU CÁLCULO ===
-            // (Damage / Gold) * 100 = Porcentagem de Eficiência
-            // Ex: 600 Dano / 400 Gold = 1.5 -> 150%
+            // Eficiência em Porcentagem (ex: 150%)
             const eficienciaPercent = (dpm / gpm) * 100;
 
-            // Raio da Bolha:
-            // Dividimos por 6 para converter a % em pixels visualmente agradáveis.
-            // Ex: 150% vira 25px de raio.
+            // Tamanho da bolha (ajuste visual, dividindo por 6)
             const radius = eficienciaPercent / 6;
 
             return {
@@ -152,7 +149,7 @@ async function fetchRealPlayerData(nick) {
                 r: radius < 5 ? 5 : radius, // Mínimo de 5px
                 champ: match['Champion'],
                 win: isWin,
-                efficiency: eficienciaPercent.toFixed(0) // Guardamos o valor para mostrar no tooltip
+                efficiency: eficienciaPercent.toFixed(0) // Para o tooltip
             };
         });
 
@@ -251,12 +248,11 @@ function createChart(vitorias, derrotas) {
                     titleColor: '#c8aa6e',
                     bodyColor: '#fff',
                     callbacks: { 
-                        // MOSTRA A PORCENTAGEM NO TOOLTIP
                         label: c => {
                             const d = c.raw;
                             return [
                                 ` ${d.champ}`,
-                                ` Eficiência: ${d.efficiency}%`, // <--- AQUI A PORCENTAGEM
+                                ` Eficiência: ${d.efficiency}%`,
                                 ` Dano/min: ${d.y.toFixed(0)}`,
                                 ` Gold/min: ${d.x.toFixed(0)}`
                             ];
