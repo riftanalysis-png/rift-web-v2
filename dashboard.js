@@ -75,7 +75,7 @@ function renderSuggestions(list) {
 }
 
 // ==========================================
-// 4. BUSCAR DADOS REAIS NO SUPABASE
+// 4. BUSCAR DADOS REAIS E LIMPAR DUPLICATAS
 // ==========================================
 async function fetchRealPlayerData(nick) {
     searchInput.value = nick;
@@ -83,18 +83,14 @@ async function fetchRealPlayerData(nick) {
     welcomeMsg.innerText = `Carregando dados de ${nick}...`;
 
     try {
-        // CORREÇÃO 1: Nome exato da tabela conforme seu erro mostrou ('partidas_br')
+        // CORREÇÃO 1: Usar .eq() em vez de .ilike() para ser EXATO
+        // Isso evita pegar nicks parecidos.
         const { data, error } = await supabaseClient
             .from('partidas_br') 
             .select('*')
-            .ilike('Player Name', nick); // Busca pelo Nick
+            .eq('Player Name', nick); 
 
         if (error) throw error;
-
-        // DEBUG: Mostra no console o que veio do banco (ajuda a conferir nomes das colunas)
-        if(data.length > 0) {
-            console.log("Exemplo de partida carregada:", data[0]);
-        }
 
         if (!data || data.length === 0) {
             alert("Nenhuma partida encontrada para este jogador.");
@@ -102,15 +98,41 @@ async function fetchRealPlayerData(nick) {
             return;
         }
 
+        // =========================================================
+        // CORREÇÃO 2: REMOVER DUPLICATAS (O Segredo!) 🛡️
+        // =========================================================
+        const partidasUnicas = [];
+        const idsVistos = new Set();
+
+        data.forEach(match => {
+            // Usa 'Match ID' para saber se é repetida
+            const id = match['Match ID']; 
+            
+            if (!idsVistos.has(id)) {
+                idsVistos.add(id);
+                partidasUnicas.push(match);
+            }
+        });
+
+        // Agora usamos APENAS 'partidasUnicas' para tudo
+        const cleanData = partidasUnicas;
+
+        console.log(`Dados brutos: ${data.length} | Dados únicos: ${cleanData.length}`);
+
+        if (cleanData.length === 0) {
+            alert("Erro: Dados encontrados mas inconsistentes.");
+            return;
+        }
+
         // --- CÁLCULOS GERAIS ---
-        const totalGames = data.length;
-        const wins = data.filter(match => match['Win Rate %'] == 1 || match['Win Rate %'] == 100).length;
+        const totalGames = cleanData.length;
+        const wins = cleanData.filter(match => match['Win Rate %'] == 1 || match['Win Rate %'] == 100).length;
         const winrate = ((wins / totalGames) * 100).toFixed(1) + "%";
 
         // Média KDA
         let totalKDA = 0;
         let validKDA = 0;
-        data.forEach(match => {
+        cleanData.forEach(match => {
              const kdaVal = parseFloat(match['KDA']);
              if(!isNaN(kdaVal)) {
                  totalKDA += kdaVal;
@@ -121,7 +143,7 @@ async function fetchRealPlayerData(nick) {
 
         // Main Champ
         const champCounts = {};
-        data.forEach(match => {
+        cleanData.forEach(match => {
             const c = match['Champion'];
             champCounts[c] = (champCounts[c] || 0) + 1;
         });
@@ -137,25 +159,17 @@ async function fetchRealPlayerData(nick) {
         displayMainChampStats.innerText = `${champCounts[mainChamp]} Partidas`;
 
         // --- DADOS PARA O GRÁFICO ---
-        const chartData = data.map(match => {
-            // CORREÇÃO 2: Uso estrito das colunas.
-            // O JavaScript não confunde 'Damage/Min' com 'Damage/Min 5' aqui.
-            // Ele pega exatamente o valor da chave que digitamos.
-            
+        const chartData = cleanData.map(match => {
             const dpm = parseFloat(match['Damage/Min']) || 0;
             const gpm = parseFloat(match['Gold/Min']) || 1; 
-            
             const isWin = match['Win Rate %'] == 1 || match['Win Rate %'] == 100;
 
-            // Eficiência (Dano / Gold) * 100
             const eficienciaPercent = (dpm / gpm) * 100;
-
-            // Ajuste visual do tamanho (Dividido por 6 para não ficar gigante)
             const radius = eficienciaPercent / 6;
 
             return {
-                y: dpm,    // Eixo Y
-                x: gpm,    // Eixo X
+                y: dpm,    
+                x: gpm,    
                 r: radius < 5 ? 5 : radius, 
                 champ: match['Champion'],
                 win: isWin,
@@ -304,7 +318,6 @@ async function checkSession() {
         userNickDisplay.innerText = nome;
         loadingScreen.style.display = 'none';
 
-        // Carrega o Zekas por padrão (se estiver na tabela)
         fetchRealPlayerData("Zekas#2002");
     }
 }
