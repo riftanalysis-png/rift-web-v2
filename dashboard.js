@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// CORES DO TEMA (Copiadas das variáveis CSS)
+// CORES DO TEMA (Baseado no seu CSS style.css)
 const THEME = {
     gold: '#c8aa6e',      // --accent-gold
     red:  '#e84057',      // --lose-red
