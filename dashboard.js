@@ -39,21 +39,20 @@ const supabaseClient = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABAS
 let chartInstance = null;
 
 // ==========================================
-// 2. SERVIÇOS (DADOS) - ATUALIZADO
+// 2. SERVIÇOS (DADOS) - CORRIGIDO
 // ==========================================
 const PlayerService = {
     async fetchHistory(nick) {
         try {
-            // Se o nick vier com tag (Ex: Zekas#2002), buscamos exato.
-            // Se vier sem, usamos o like (mas isso pode causar o problema de puxar outros).
             const isExactMatch = nick.includes('#');
             
+            // 1. Busca no Banco
             let query = supabaseClient
                 .from('partidas_br')
                 .select('*');
 
             if (isExactMatch) {
-                // Tenta buscar exatamente pelo "Nome#Tag" se sua coluna 'Player Name' salva assim
+                // Se tem #, usa igualdade exata para evitar pegar "ZekasFake"
                 query = query.eq('Player Name', nick);
             } else {
                 query = query.ilike('Player Name', `%${nick}%`);
@@ -64,32 +63,40 @@ const PlayerService = {
             if (error) throw error;
             if (!data) return [];
 
-            // --- FILTRAGEM E LIMPEZA (A Mágica acontece aqui) ---
-            const cleanedData = this.removeDuplicatesAndGhosts(data);
+            // 2. Limpeza PESADA de dados (A mágica acontece aqui)
+            // Passamos o 'nick' original para filtrar intrusos
+            const cleanedData = this.cleanData(data, nick);
             
             console.log(`Dados brutos: ${data.length} | Dados limpos: ${cleanedData.length}`);
             return cleanedData;
 
         } catch (err) {
             console.error("Erro Supabase:", err);
-            throw err;
+            throw err; // Repassa o erro para a UI mostrar alerta
         }
     },
 
-    // Função auxiliar para limpar a sujeira
-    removeDuplicatesAndGhosts(matches) {
+    cleanData(matches, targetNick) {
         const uniqueMatches = [];
         const seenIds = new Set();
+        // Normaliza o nick buscado para comparar (remove espaços, lowercase)
+        const safeTarget = targetNick.toLowerCase().trim().split('#')[0]; 
 
         matches.forEach(match => {
-            // 1. Validação de "Fantasma": Se não tem Campeão ou Dano, ignora
+            // A. FILTRO DE INTRUSOS: 
+            // Garante que o nome do jogador na linha contém o nome buscado.
+            // Isso remove o "Persona nongrata" que apareceu no seu gráfico.
+            const playerName = (match['Player Name'] || '').toLowerCase();
+            if (!playerName.includes(safeTarget)) return;
+
+            // B. FILTRO DE FANTASMAS: 
+            // Ignora linhas sem Campeão ou Dano (aquelas bolhas vermelhas escuras)
             if (!match['Champion'] || !match['Damage/Min']) return;
 
-            // 2. Criação de ID Único para evitar duplicatas
-            // Se você tiver uma coluna 'Match ID' no banco, use: const id = match['Match ID'];
-            // Se não tiver, criamos uma "assinatura" baseada nos stats (improvável 2 partidas iguais)
+            // C. FILTRO DE DUPLICATAS:
+            // Usa ID da partida ou cria uma assinatura única
             const signature = match['Match ID'] || 
-                              `${match['Champion']}-${match['KDA']}-${match['Gold/Min']}-${match['Damage/Min']}`;
+                              `${match['Champion']}-${match['KDA']}-${match['Gold/Min']}`;
 
             if (!seenIds.has(signature)) {
                 seenIds.add(signature);
