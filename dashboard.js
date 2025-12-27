@@ -1,6 +1,6 @@
 /**
  * LEAGUE OF LEGENDS DASHBOARD SCRIPT
- * Refatorado para modularidade e limpeza.
+ * Versão Final: Refatorada + Lógica de Filtro Estrito (Anti-Fantasmas)
  */
 
 // ==========================================
@@ -17,7 +17,7 @@ const CONFIG = {
     ]
 };
 
-// Seletores DOM centralizados
+// Seletores DOM
 const UI_ELEMENTS = {
     loading: document.getElementById('loadingScreen'),
     welcome: document.getElementById('welcomeMsg'),
@@ -39,21 +39,20 @@ const supabaseClient = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABAS
 let chartInstance = null;
 
 // ==========================================
-// 2. SERVIÇOS (DADOS) - CORRIGIDO
+// 2. SERVIÇOS (BANCO DE DADOS)
 // ==========================================
 const PlayerService = {
     async fetchHistory(nick) {
         try {
+            // Lógica "Excel": Se tem #, usamos IGUAL (=). Se não, usamos CONTÉM (like).
             const isExactMatch = nick.includes('#');
             
-            // 1. Busca no Banco
             let query = supabaseClient
                 .from('partidas_br')
                 .select('*');
 
             if (isExactMatch) {
-                // Se tem #, usa igualdade exata para evitar pegar "ZekasFake"
-                query = query.eq('Player Name', nick);
+                query = query.eq('Player Name', nick); // O tal do FILTER exato
             } else {
                 query = query.ilike('Player Name', `%${nick}%`);
             }
@@ -63,8 +62,7 @@ const PlayerService = {
             if (error) throw error;
             if (!data) return [];
 
-            // 2. Limpeza PESADA de dados (A mágica acontece aqui)
-            // Passamos o 'nick' original para filtrar intrusos
+            // Limpeza final via JavaScript (Garante que não passou sujeira)
             const cleanedData = this.cleanData(data, nick);
             
             console.log(`Dados brutos: ${data.length} | Dados limpos: ${cleanedData.length}`);
@@ -72,29 +70,25 @@ const PlayerService = {
 
         } catch (err) {
             console.error("Erro Supabase:", err);
-            throw err; // Repassa o erro para a UI mostrar alerta
+            throw err;
         }
     },
 
+    // Filtra duplicatas e linhas quebradas (fantasmas)
     cleanData(matches, targetNick) {
         const uniqueMatches = [];
         const seenIds = new Set();
-        // Normaliza o nick buscado para comparar (remove espaços, lowercase)
-        const safeTarget = targetNick.toLowerCase().trim().split('#')[0]; 
+        const safeTarget = targetNick.toLowerCase().trim().split('#')[0]; // Pega só o nome base
 
         matches.forEach(match => {
-            // A. FILTRO DE INTRUSOS: 
-            // Garante que o nome do jogador na linha contém o nome buscado.
-            // Isso remove o "Persona nongrata" que apareceu no seu gráfico.
+            // 1. Validação de Nome: Remove jogadores intrusos (ex: Persona nongrata)
             const playerName = (match['Player Name'] || '').toLowerCase();
             if (!playerName.includes(safeTarget)) return;
 
-            // B. FILTRO DE FANTASMAS: 
-            // Ignora linhas sem Campeão ou Dano (aquelas bolhas vermelhas escuras)
+            // 2. Validação de Fantasma: Remove linhas sem Campeão ou Dano
             if (!match['Champion'] || !match['Damage/Min']) return;
 
-            // C. FILTRO DE DUPLICATAS:
-            // Usa ID da partida ou cria uma assinatura única
+            // 3. Validação de Duplicata: Evita partidas repetidas
             const signature = match['Match ID'] || 
                               `${match['Champion']}-${match['KDA']}-${match['Gold/Min']}`;
 
@@ -118,7 +112,7 @@ const PlayerService = {
 };
 
 // ==========================================
-// 3. CALCULADORA (LÓGICA DE NEGÓCIO)
+// 3. CALCULADORA (LÓGICA)
 // ==========================================
 const StatsCalculator = {
     calculateWinrate(matches) {
@@ -153,8 +147,10 @@ const StatsCalculator = {
         return matches.map(match => {
             const dpm = parseFloat(match['Damage/Min']) || 0;
             const gpm = parseFloat(match['Gold/Min']) || 1;
+            
+            // Cálculo de eficiência
             const efficiency = (dpm / gpm) * 100;
-            const radius = Math.max(5, efficiency / 6); // Garante tamanho mínimo
+            const radius = Math.max(5, efficiency / 6); // Tamanho mínimo da bolha
             
             return {
                 x: gpm,
@@ -169,10 +165,10 @@ const StatsCalculator = {
 };
 
 // ==========================================
-// 4. GERENCIADOR DE GRÁFICO (CHART.JS)
+// 4. GRÁFICO (CHART.JS)
 // ==========================================
 const ChartManager = {
-    // Plugin customizado extraído para clareza
+    // Plugin para desenhar a imagem dentro da bolha
     championImagePlugin: {
         id: 'customImage',
         afterDatasetDraw(chart, args) {
@@ -192,7 +188,7 @@ const ChartManager = {
                     ctx.clip();
                     ctx.drawImage(dataPoint.image, x - radius, y - radius, radius * 2, radius * 2);
                     
-                    // Borda baseada em vitória/derrota
+                    // Borda: Azul (Vitória) / Vermelho (Derrota)
                     ctx.lineWidth = 3;
                     ctx.strokeStyle = dataPoint.win ? '#5383e8' : '#e84057';
                     ctx.stroke();
@@ -202,20 +198,24 @@ const ChartManager = {
         }
     },
 
+    // Pré-carrega imagens para evitar "piscar"
     preloadImages(dataPoints, onReady) {
         let loaded = 0;
         const total = dataPoints.length;
         
+        if (total === 0) { onReady(); return []; }
+
         return dataPoints.map(point => {
             const img = new Image();
             const cleanName = point.champ.replace(/[^a-zA-Z0-9]/g, '');
             img.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
             
-            // Simples mecanismo para atualizar o gráfico quando as imagens carregarem
             img.onload = () => {
                 loaded++;
+                // Atualiza quando tudo carregar ou a cada 5 imagens
                 if (loaded === total || loaded % 5 === 0) onReady(); 
             };
+            img.onerror = () => { loaded++; }; // Não trava se a imagem falhar
             return { ...point, image: img };
         });
     },
@@ -223,7 +223,6 @@ const ChartManager = {
     render(rawData) {
         if (chartInstance) chartInstance.destroy();
 
-        // Separa dados e pré-carrega imagens
         const dataWithImages = this.preloadImages(rawData, () => chartInstance?.update());
         
         const vitorias = dataWithImages.filter(d => d.win);
@@ -250,7 +249,12 @@ const ChartManager = {
                         callbacks: {
                             label: c => {
                                 const d = c.raw;
-                                return [` ${d.champ}`, ` Eficiência: ${d.efficiency}%`, ` Dano/min: ${d.y.toFixed(0)}`, ` Gold/min: ${d.x.toFixed(0)}`];
+                                return [
+                                    ` ${d.champ}`, 
+                                    ` Eficiência: ${d.efficiency}%`, 
+                                    ` Dano/min: ${d.y.toFixed(0)}`, 
+                                    ` Gold/min: ${d.x.toFixed(0)}`
+                                ];
                             }
                         }
                     }
@@ -265,7 +269,7 @@ const ChartManager = {
 };
 
 // ==========================================
-// 5. INTERFACE (UI & EVENTOS)
+// 5. INTERFACE (UI)
 // ==========================================
 const UIManager = {
     updateHeader(nick, stats) {
@@ -275,8 +279,10 @@ const UIManager = {
         UI_ELEMENTS.stats.mainChampName.innerText = stats.mainChamp.name;
         UI_ELEMENTS.stats.mainChampCount.innerText = `${stats.mainChamp.count} Partidas`;
         
-        const cleanName = stats.mainChamp.name.replace(/[^a-zA-Z0-9]/g, '');
-        UI_ELEMENTS.stats.mainChampImg.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
+        if(stats.mainChamp.name !== '-') {
+            const cleanName = stats.mainChamp.name.replace(/[^a-zA-Z0-9]/g, '');
+            UI_ELEMENTS.stats.mainChampImg.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
+        }
     },
 
     renderSuggestions(list) {
@@ -302,7 +308,6 @@ const UIManager = {
 // ==========================================
 const App = {
     async init() {
-        // Verifica sessão
         const session = await PlayerService.checkSession();
         if (!session) {
             window.location.href = "index.html";
@@ -314,27 +319,24 @@ const App = {
         UI_ELEMENTS.userNick.innerText = userMeta.full_name || "Invocador";
         UI_ELEMENTS.loading.style.display = 'none';
 
-        // Carrega player padrão
+        // Carrega jogador padrão
         this.loadPlayer("Zekas#2002");
         this.setupListeners();
     },
 
     setupListeners() {
-        // Busca
         UI_ELEMENTS.search.addEventListener('focus', () => this.handleSearchInput());
         UI_ELEMENTS.search.addEventListener('input', () => this.handleSearchInput());
         
-        // Fechar sugestões ao clicar fora
         document.addEventListener('click', (e) => {
             if (!UI_ELEMENTS.search.contains(e.target) && !UI_ELEMENTS.suggestions.contains(e.target)) {
                 UIManager.toggleSuggestions(false);
             }
         });
 
-        // Logout
         UI_ELEMENTS.logoutBtn.addEventListener('click', async () => {
-            const { error } = await PlayerService.logout();
-            if (!error) window.location.href = "index.html";
+            await PlayerService.logout();
+            window.location.href = "index.html";
         });
     },
 
@@ -361,25 +363,23 @@ const App = {
             const matches = await PlayerService.fetchHistory(nick);
             
             if (matches.length === 0) {
-                alert("Nenhuma partida encontrada.");
+                alert("Nenhuma partida encontrada ou jogador sem dados.");
                 UI_ELEMENTS.welcome.innerText = `Sem dados: ${nick}`;
                 return;
             }
 
-            // Calcula Estatísticas
             const stats = {
                 winrate: StatsCalculator.calculateWinrate(matches),
                 kda: StatsCalculator.calculateAvgKDA(matches),
                 mainChamp: StatsCalculator.findMainChamp(matches)
             };
 
-            // Atualiza UI e Gráfico
             UIManager.updateHeader(nick, stats);
-            
             const chartData = StatsCalculator.processChartData(matches);
             ChartManager.render(chartData);
 
         } catch (err) {
+            console.error(err);
             alert("Erro ao processar dados.");
         }
     }
