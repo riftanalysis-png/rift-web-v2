@@ -11,10 +11,11 @@ const UI = {
     logout: document.getElementById('logoutBtn')
 };
 
-// Variáveis Globais dos Gráficos
+// Variáveis Globais para guardar as instâncias dos gráficos
 let chartBubble = null;
 let chartBar = null;
 let chartXP = null;
+let chartImpacto = null;
 
 // =========================================================
 // 2. INICIALIZAÇÃO
@@ -39,7 +40,7 @@ function init() {
 }
 
 // =========================================================
-// 3. BUSCA E TRATAMENTO
+// 3. BUSCA E TRATAMENTO DE DADOS
 // =========================================================
 async function buscarDados(nick) {
     console.clear();
@@ -54,7 +55,7 @@ async function buscarDados(nick) {
 
         if (error) throw error;
         if (!data || data.length === 0) {
-            alert("Jogador não encontrado.");
+            alert("Jogador não encontrado ou sem dados.");
             return;
         }
 
@@ -62,12 +63,12 @@ async function buscarDados(nick) {
             linha['Player Name'].toLowerCase().includes(nick.toLowerCase())
         );
 
-        // Remove duplicatas (Match ID único)
+        // Remove duplicatas usando Match ID como chave
         const dadosUnicos = Array.from(
             new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
         );
 
-        console.log(`✅ ${dadosUnicos.length} partidas carregadas.`);
+        console.log(`✅ ${dadosUnicos.length} partidas únicas carregadas.`);
         
         renderizarGraficos(dadosUnicos);
 
@@ -77,30 +78,27 @@ async function buscarDados(nick) {
 }
 
 // =========================================================
-// 4. RENDERIZAÇÃO
+// 4. RENDERIZAÇÃO DOS GRÁFICOS
 // =========================================================
 async function renderizarGraficos(dados) {
-    // Para Bolhas e Barras: Apenas os últimos 20 jogos (Visual limpo)
+    // Para Bolhas e Barras de Farm: Apenas os últimos 20 jogos (Visual limpo)
     const dadosRecentes = dados.slice(-20);
     
-    // Para Probabilidade (XP): Usa TODOS os dados (Estatística)
+    // Para Probabilidade e Impacto (Estatísticas): Usa TODOS os dados
     const dadosCompletos = dados; 
 
-    // Carrega imagens antes de desenhar
+    // Carrega imagens antes de desenhar (necessário para o Bubble Chart)
     const imagensMap = await carregarImagensCampeoes(dadosRecentes);
 
-    // --- GRÁFICO 1: BUBBLE CHART (IMAGENS REDONDAS) ---
+    // Renderiza cada gráfico
     renderizarBubble(dadosRecentes, imagensMap);
-
-    // --- GRÁFICO 2: BARRAS DE FARM ---
     renderizarFarm(dadosRecentes);
-
-    // --- GRÁFICO 3: LINHA DE PROBABILIDADE (XP DIFF) ---
     renderizarXPProbability(dadosCompletos);
+    renderizarImpactoXP(dadosCompletos);
 }
 
 // ---------------------------------------------------------
-// A. FUNÇÃO DO GRÁFICO DE BOLHAS
+// A. GRÁFICO DE BOLHAS (Carry Efficiency)
 // ---------------------------------------------------------
 function renderizarBubble(dados, imagensMap) {
     const ctx = document.getElementById('graficoPrincipal');
@@ -112,7 +110,7 @@ function renderizarBubble(dados, imagensMap) {
         const gpm = d['Gold Earned'] / duracao;
 
         // --- ESCALA DO TAMANHO ---
-        // Se o jogador tiver 450 GPM, o raio será 45px (grande).
+        // Se GPM for 450, o raio da bolha será 45px (grande e visível)
         const ESCALA_BASE = 45; 
         const radiusPixel = (gpm / 450) * ESCALA_BASE;
 
@@ -149,7 +147,7 @@ function renderizarBubble(dados, imagensMap) {
                 ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
                 ctx.restore();
 
-                // Borda
+                // Borda Colorida
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.lineWidth = 3;
@@ -190,7 +188,7 @@ function renderizarBubble(dados, imagensMap) {
 }
 
 // ---------------------------------------------------------
-// B. FUNÇÃO DO GRÁFICO DE FARM
+// B. GRÁFICO DE BARRAS (Farm)
 // ---------------------------------------------------------
 function renderizarFarm(dados) {
     const ctx = document.getElementById('graficoFarm');
@@ -224,22 +222,19 @@ function renderizarFarm(dados) {
 }
 
 // ---------------------------------------------------------
-// C. FUNÇÃO DO GRÁFICO DE PROBABILIDADE XP (NOVO)
+// C. GRÁFICO DE LINHA (Probabilidade XP Diff)
 // ---------------------------------------------------------
 function renderizarXPProbability(dados) {
     const ctx = document.getElementById('graficoXPWinrate');
     if (!ctx) return;
     if (chartXP) chartXP.destroy();
 
-    // 1. Buckets de 500 em 500 XP
+    // Buckets de 500 em 500
     const buckets = {};
     const TAMANHO_BALDE = 500; 
 
     dados.forEach(d => {
-        // Pega XP Diff aos 12 (Certifique-se que o nome da coluna no Python está igual a este)
-        // Se no Python for "XP Diff 12'", use isso. Se for outro nome, ajuste aqui.
         const xpDiff = d["XP Diff 12'"] || d["XP Diff 12"] || 0; 
-        
         const bucketKey = Math.round(xpDiff / TAMANHO_BALDE) * TAMANHO_BALDE;
 
         if (!buckets[bucketKey]) buckets[bucketKey] = { wins: 0, total: 0 };
@@ -248,7 +243,6 @@ function renderizarXPProbability(dados) {
         if (d['Win Rate %'] === 1) buckets[bucketKey].wins++;
     });
 
-    // 2. Prepara dados ordenados
     let chartData = Object.keys(buckets).map(key => {
         const k = parseInt(key);
         const winRate = (buckets[key].wins / buckets[key].total) * 100;
@@ -263,7 +257,7 @@ function renderizarXPProbability(dados) {
             datasets: [{
                 label: 'Chance de Vitória',
                 data: chartData.map(d => d.y),
-                borderColor: '#22d3ee', // Ciano Neon
+                borderColor: '#22d3ee',
                 backgroundColor: 'rgba(34, 211, 238, 0.2)',
                 borderWidth: 3,
                 tension: 0.4,
@@ -299,6 +293,60 @@ function renderizarXPProbability(dados) {
 }
 
 // ---------------------------------------------------------
+// D. GRÁFICO DE BARRAS (Impacto XP Win vs Loss)
+// ---------------------------------------------------------
+function renderizarImpactoXP(dados) {
+    const ctx = document.getElementById('graficoImpactoXP');
+    if (!ctx) return;
+    if (chartImpacto) chartImpacto.destroy();
+
+    const vitorias = dados.filter(d => d['Win Rate %'] === 1);
+    const derrotas = dados.filter(d => d['Win Rate %'] === 0);
+
+    const somaXP = (lista) => lista.reduce((acc, curr) => {
+        const val = curr["XP Diff 12'"] || curr["XP Diff 12"] || 0;
+        return acc + val;
+    }, 0);
+
+    const mediaWin = vitorias.length > 0 ? somaXP(vitorias) / vitorias.length : 0;
+    const mediaLoss = derrotas.length > 0 ? somaXP(derrotas) / derrotas.length : 0;
+
+    chartImpacto = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Vitórias', 'Derrotas'],
+            datasets: [{
+                label: 'Média XP Diff @ 12 min',
+                data: [mediaWin, mediaLoss],
+                backgroundColor: ['rgba(0, 191, 255, 0.6)', 'rgba(255, 69, 0, 0.6)'],
+                borderColor: ['#00BFFF', '#FF4500'],
+                borderWidth: 2,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y', // 'y' para barras horizontais (como na sua imagem), remova para verticais
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: { label: (ctx) => `Média: ${ctx.raw.toFixed(0)} XP` }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: '#333' },
+                    ticks: { color: '#eee' },
+                    title: { display: true, text: 'Diferença de XP Média', color: '#aaa' }
+                },
+                y: { grid: { display: false }, ticks: { color: '#eee', font: { weight: 'bold' } } }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------
 // UTILITÁRIO: CARREGAMENTO DE IMAGENS
 // ---------------------------------------------------------
 async function carregarImagensCampeoes(dados) {
@@ -307,6 +355,7 @@ async function carregarImagensCampeoes(dados) {
         return new Promise((resolve) => {
             const img = new Image();
             let champName = d.Champion;
+            // Exceções conhecidas do DataDragon
             if (champName === "FiddleSticks") champName = "Fiddlesticks"; 
             if (champName === "Renata") champName = "RenataGlasc"; 
 
