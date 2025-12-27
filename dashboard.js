@@ -78,116 +78,135 @@ async function buscarDados(nick) {
 }
 
 // =========================================================
-// RENDERIZAÇÃO DOS GRÁFICOS
+// RENDERIZAÇÃO DOS GRÁFICOS (COM PLUGIN DE CÍRCULOS)
 // =========================================================
 async function renderizarGraficos(dados) {
-    // Pegamos as últimas 20 partidas para o gráfico não ficar poluido demais
+    // Pegamos as últimas 20 partidas
     const dadosRecentes = dados.slice(-20);
 
-    // 1. Carregar imagens dos campeões (necessário para o Chart.js desenhar dentro da bolha)
+    // 1. Carrega imagens
     const imagensMap = await carregarImagensCampeoes(dadosRecentes);
 
-    // --- GRÁFICO DE BOLHAS (SCATTER / BUBBLE) ---
+    // --- GRÁFICO 1: BUBBLE CHART (PERSONALIZADO) ---
     const ctx1 = document.getElementById('graficoPrincipal');
     
     if (ctx1) {
         if (chartBubble) chartBubble.destroy();
 
-        // Mapeando os dados para o formato X, Y, R
+        // Preparar dados
         const bubbleData = dadosRecentes.map(d => {
-            // --- CÁLCULO DO TAMANHO (RAIO) ---
-            // Fórmula solicitada: (Gold Earned / Duração em Minutos) / 450 * 100
-            // Nota: No banco, 'Game Duration' já está em minutos.
+            // Sua Fórmula: (Gold Earned / Duration) = GPM.
+            // (GPM / 450 * 100) -> Isso gera números como 80, 100, 120.
+            // Para pixels na tela, isso é muito grande (raio 100 = 200px largura).
+            // Vou dividir por 3.5 para ficar visualmente agradável (bolhas de ~30px a ~60px).
             
-            let duracaoMinutos = d['Game Duration']; 
-            
-            // Fallback: Se for uma partida antiga sem 'Game Duration', calculamos aproximado pelo Gold/Min
-            if (!duracaoMinutos || duracaoMinutos === 0) {
-                duracaoMinutos = d['Gold Earned'] / (d['Gold/Min'] || 1);
-            }
-
-            // GPM = Gold Per Minute
-            const gpm = d['Gold Earned'] / duracaoMinutos;
-            
-            // Valor Bruto da fórmula do usuário
-            const tamanhoBruto = (gpm / 450) * 100; 
-
-            // AJUSTE VISUAL: 
-            // Um raio (r) de 100px gera uma bolha de 200px de largura. Isso cobriria o gráfico todo.
-            // Dividimos por 5 para manter a proporção mas caber na tela.
-            // Você pode remover o "/ 5" se quiser bolhas gigantes reais.
-            const tamanhoVisual = tamanhoBruto / 5; 
+            let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
+            const gpm = d['Gold Earned'] / duracao;
+            const rawSize = (gpm / 450) * 100; 
+            const radiusPixel = rawSize / 3.5; 
 
             return {
-                x: d['Damage/Min'], // Eixo X
-                y: d['Gold/Min'],   // Eixo Y
-                r: tamanhoVisual,   // Tamanho da Bolha
-                
-                // Dados extras para cor e imagem
+                x: d['Damage/Min'],
+                y: d['Gold/Min'],
+                r: radiusPixel, // O raio exato em pixels
                 champion: d['Champion'],
                 win: d['Win Rate %'] === 1,
-                
-                // Dados originais para o Tooltip
-                rawGpm: gpm.toFixed(0),
-                rawDamage: d['Damage/Min'].toFixed(0)
+                gpm: gpm.toFixed(0)
             };
         });
+
+        // --- O SEGREDO: PLUGIN CUSTOMIZADO ---
+        // Esse bloco ensina o Chart.js a desenhar imagens redondas
+        const imageProfilePlugin = {
+            id: 'customAvatar',
+            afterDatasetDraw(chart, args, options) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                
+                meta.data.forEach((element, index) => {
+                    const dataPoint = bubbleData[index];
+                    const img = imagensMap[dataPoint.champion];
+                    
+                    if (!img) return;
+
+                    const { x, y } = element.tooltipPosition();
+                    const radius = element.options.radius; // Pega o raio calculado
+
+                    ctx.save();
+                    
+                    // 1. Cria o caminho do Círculo
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.closePath();
+                    
+                    // 2. Recorta (Clip) tudo que estiver fora do círculo
+                    ctx.clip();
+                    
+                    // 3. Desenha a imagem esticada para caber no quadrado do círculo
+                    // (x - radius) é o canto superior esquerdo
+                    ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+                    
+                    // 4. Restaura para poder desenhar a borda por cima sem cortar
+                    ctx.restore();
+
+                    // 5. Desenha a Borda Colorida (Vitória/Derrota)
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.lineWidth = 3; // Grossura da borda
+                    ctx.strokeStyle = dataPoint.win ? '#00BFFF' : '#FF4500'; // Azul ou Vermelho
+                    ctx.stroke();
+                });
+            }
+        };
 
         chartBubble = new Chart(ctx1, {
             type: 'bubble',
             data: {
                 datasets: [{
-                    label: 'Performance Recente',
+                    label: 'Performance',
                     data: bubbleData,
-                    
-                    // --- IMAGEM DENTRO DA BOLHA ---
-                    pointStyle: bubbleData.map(d => imagensMap[d.champion]), 
-                    
-                    // --- CORES (Azul = Vitória, Vermelho = Derrota) ---
-                    borderColor: bubbleData.map(d => d.win ? '#00BFFF' : '#FF4500'), // Ciano ou Laranja/Vermelho
-                    borderWidth: 3, // Borda grossa para identificar fácil
-                    
-                    // Fundo translúcido da cor da borda (caso a imagem tenha transparência)
-                    backgroundColor: bubbleData.map(d => d.win ? 'rgba(0, 191, 255, 0.1)' : 'rgba(255, 69, 0, 0.1)'),
+                    // Deixamos a cor de fundo transparente pois o plugin vai desenhar a imagem
+                    backgroundColor: 'transparent', 
+                    borderColor: 'transparent',
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }, // Não precisa de legenda, cada bolha é um jogo
+                    legend: { display: false },
                     tooltip: {
-                        displayColors: false,
                         callbacks: {
                             label: function(context) {
                                 const d = context.raw;
-                                const resultado = d.win ? "Vitória" : "Derrota";
-                                return `${d.champion} (${resultado}) | Dano/min: ${d.rawDamage} | Gold/min: ${d.rawGpm}`;
+                                const status = d.win ? "Vitória" : "Derrota";
+                                return `${d.champion} (${status}) | Dano: ${d.x.toFixed(0)} | GPM: ${d.gpm}`;
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: 'Dano por Minuto (DPM)', color: '#aaa' },
+                        title: { display: true, text: 'Dano por Minuto', color: '#aaa' },
                         grid: { color: '#333' },
                         ticks: { color: '#eee' }
                     },
                     y: {
-                        title: { display: true, text: 'Ouro por Minuto (GPM)', color: '#aaa' },
+                        title: { display: true, text: 'Ouro por Minuto', color: '#aaa' },
                         grid: { color: '#333' },
                         ticks: { color: '#eee' }
                     }
                 }
-            }
+            },
+            // IMPORTANTE: Registrar o plugin aqui
+            plugins: [imageProfilePlugin]
         });
     }
 
-    // --- GRÁFICO 2: BARRAS DE FARM (MANTIDO) ---
+    // --- GRÁFICO 2: MANTIDO IGUAL ---
     const ctx2 = document.getElementById('graficoFarm');
     if (ctx2) {
         if (chartBar) chartBar.destroy();
-        
         const labels = dadosRecentes.map(d => d.Champion);
         const csData = dadosRecentes.map(d => d['Farm/Min']);
 
@@ -208,7 +227,7 @@ async function renderizarGraficos(dados) {
                 maintainAspectRatio: false,
                 scales: {
                     y: { beginAtZero: true, grid: { color: '#333' } },
-                    x: { ticks: { color: '#aaa' }, grid: { display: false } }
+                    x: { display: false }
                 }
             }
         });
