@@ -1,5 +1,5 @@
 /* =========================================
-   VARIÁVEIS GLOBAIS (Paleta Premium)
+   VARIÁVEIS GLOBAIS (Paleta Sesshomaru)
 ========================================= */
 :root {
     --bg-main: #050607;      /* Preto Profundo */
@@ -9,54 +9,69 @@
     --text-primary: #ffffff;
     --text-secondary: #8a92a3; /* Cinza Metálico */
     
-    --accent-gold: #c8aa6e;
+    --accent-gold: #c8aa6e;    /* Dourado Nobre */
     --accent-hover: #f0e6d2;
-    --error-red: #ff4d4d;
     
-    --win-blue: #5383e8;
-    --lose-red: #e84057;
+    --win-blue: #5383e8;       /* Azul Controle */
+    --lose-red: #e84057;       /* Vermelho Impacto */
+    
+    --border-light: rgba(255, 255, 255, 0.05);
+    --shadow-card: 0 10px 30px rgba(0,0,0, 0.3);
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', 'Inter', sans-serif;
+    outline: none;
 }
+
+/* Scrollbar Premium */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-main); }
+::-webkit-scrollbar-thumb { background: #1f232e; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
 
 body {
     background-color: var(--bg-main);
     color: var(--text-primary);
+    overflow: hidden; 
 }
 
 /* =========================================
-   ESTILOS DA DASHBOARD
+   ESTRUTURA DA DASHBOARD
 ========================================= */
-
 .dashboard-container {
     display: flex;
     height: 100vh;
+    width: 100vw;
     background-color: var(--bg-main);
-    overflow: hidden;
 }
 
-/* --- Menu Lateral --- */
+/* --- Sidebar --- */
 .sidebar {
     width: 260px;
+    height: 100%;
     background-color: var(--bg-secondary);
     display: flex;
     flex-direction: column;
     padding: 30px 20px;
-    border-right: 1px solid rgba(255,255,255,0.03);
+    border-right: 1px solid var(--border-light);
+    flex-shrink: 0;
 }
 
 .sidebar .brand h3 {
     color: var(--accent-gold);
     font-size: 1.1rem;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     margin-bottom: 50px;
     text-transform: uppercase;
     text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
 }
 
 .sidebar nav a {
@@ -66,240 +81,186 @@ body {
     text-decoration: none;
     padding: 14px 15px;
     margin-bottom: 8px;
-    border-radius: 6px;
+    border-radius: 8px;
     gap: 15px;
-    transition: all 0.3s ease;
-    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
     font-weight: 500;
+    border: 1px solid transparent;
 }
 
-.sidebar nav i { font-size: 1.3rem; }
+.sidebar nav i { font-size: 1.2rem; width: 24px; text-align: center; }
 
 .sidebar nav a:hover, .sidebar nav a.active {
     background-color: rgba(200, 170, 110, 0.08);
     color: var(--accent-gold);
+    border-color: rgba(200, 170, 110, 0.1);
 }
 
 .sidebar .user-info {
     margin-top: auto;
     padding-top: 20px;
-    border-top: 1px solid rgba(255,255,255, 0.05);
-    text-align: center;
+    border-top: 1px solid var(--border-light);
 }
 
-/* --- Área Principal --- */
+/* --- Conteúdo Principal --- */
 .content {
     flex: 1;
     padding: 40px;
     overflow-y: auto;
+    position: relative;
 }
 
-header h1 {
-    font-size: 2rem;
-    font-weight: 300;
+/* Header & Search */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.dashboard-header h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
     color: var(--text-primary);
+    letter-spacing: -0.5px;
 }
 
-/* --- Grid de Cards --- */
+.search-container {
+    position: relative;
+    width: 320px;
+}
+
+.input-wrapper { position: relative; width: 100%; }
+
+.search-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+#playerSearch {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background-color: var(--bg-secondary);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: white;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+#playerSearch:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 3px rgba(200, 170, 110, 0.15);
+    background-color: #000;
+}
+
+/* =========================================
+   GRID & CARDS
+========================================= */
+.section-title {
+    color: var(--accent-gold);
+    margin: 40px 0 20px 0;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    opacity: 0.8;
+}
+
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 25px;
-    margin-top: 40px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
 }
 
 .card {
     background-color: var(--bg-card);
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0, 0.2);
-    border: 1px solid rgba(255,255,255, 0.02);
-    transition: transform 0.3s ease;
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--border-light);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(200, 170, 110, 0.1);
+    transform: translateY(-3px);
+    border-color: rgba(200, 170, 110, 0.2);
 }
 
-.card h3 {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-secondary);
-    margin-bottom: 10px;
-}
-
-.big-number {
-    font-size: 2.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #fff 30%, var(--accent-gold) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* --- Estilos do Gráfico --- */
-/* Faz o card do gráfico ocupar 2 colunas em telas médias/grandes */
-@media (min-width: 900px) {
-    .chart-card {
-        grid-column: span 2;
-    }
+/* O gráfico principal ocupa 2 colunas em telas largas */
+@media (min-width: 1200px) {
+    .chart-card { grid-column: span 2; }
 }
 
 .chart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .chart-legend {
     display: flex;
     gap: 15px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
 }
 
-.chart-legend span {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.chart-legend i { font-size: 10px; }
-
+/* --- Chart Containers (Heights) --- */
 .chart-container {
     position: relative;
-    height: 350px; /* Altura fixa para o gráfico */
     width: 100%;
+    height: 300px; /* Padrão */
 }
 
-/* --- Badge de Campeão --- */
-.champ-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-}
+.chart-container.tall { height: 400px; }  /* Scatter principal */
+.chart-container.small { height: 220px; } /* Relacionais */
 
-.champ-badge img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 2px solid var(--accent-gold);
-    object-fit: cover;
-}
-
-/* --- Botão Sair --- */
+/* Botão Logout */
 #logoutBtn {
     background: transparent;
-    border: 1px solid rgba(200, 170, 110, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-secondary);
-    padding: 8px 20px;
-    margin-top: 5px;
+    padding: 10px;
     width: 100%;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     transition: all 0.3s;
 }
 
 #logoutBtn:hover {
-    border-color: var(--accent-gold);
-    color: var(--accent-gold);
-    background-color: rgba(200, 170, 110, 0.05);
+    border-color: var(--lose-red);
+    color: var(--lose-red);
+    background-color: rgba(232, 64, 87, 0.05);
 }
 
-
-/* =========================================
-   BARRA DE PESQUISA (SEARCH BAR)
-========================================= */
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 30px;
+/* Mobile */
+@media (max-width: 1024px) {
+    .dashboard-container { flex-direction: column; height: auto; overflow-y: auto; }
+    .sidebar { width: 100%; height: auto; padding: 20px; border-right: none; border-bottom: 1px solid var(--border-light); }
+    .sidebar nav { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .content { padding: 20px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .chart-card { grid-column: span 1; }
 }
-
-.search-container {
-    position: relative; /* Para a lista de sugestões flutuar em relação a isso */
-    width: 300px;
-}
-
-.input-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.search-icon {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-secondary);
-    font-size: 1.2rem;
-}
-
-#playerSearch {
-    width: 100%;
-    padding: 10px 10px 10px 40px; /* Espaço para o ícone */
-    background-color: var(--bg-secondary);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px; /* Borda redonda moderna */
-    color: white;
-    font-size: 0.9rem;
-    outline: none;
-    transition: all 0.3s;
-}
-
-#playerSearch:focus {
-    border-color: var(--accent-gold);
-    box-shadow: 0 0 10px rgba(200, 170, 110, 0.2);
-    background-color: #000;
-}
-
-/* Lista de Sugestões Flutuante */
-.suggestions-box {
-    position: absolute;
-    top: 45px;
-    left: 0;
-    width: 100%;
-    background-color: var(--bg-card);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    z-index: 100;
-    display: none; /* Escondido por padrão */
-    overflow: hidden;
-}
-
-.suggestion-item {
-    padding: 12px 15px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-secondary);
-    transition: background 0.2s;
-    border-bottom: 1px solid rgba(255,255,255,0.02);
-}
-
-.suggestion-item:last-child {
-    border-bottom: none;
-}
-
-.suggestion-item:hover {
-    background-color: rgba(200, 170, 110, 0.1);
-    color: var(--text-primary);
-}
-
-.suggestion-item strong {
-    color: var(--accent-gold);
-}
-
-/* Mantendo Login Styles básicos para não quebrar caso usem o mesmo CSS */
-.login-container { max-width: 400px; margin: 100px auto; padding: 40px; background: var(--bg-card); text-align: center; border-radius: 8px; }
-.input-group { margin-bottom: 15px; }
-.login-container input { width: 100%; padding: 12px; background: #090a0c; border: 1px solid #333; color: #fff; margin-bottom: 10px; }
-.login-container button { width: 100%; padding: 12px; background: var(--accent-gold); border: none; font-weight: bold; cursor: pointer; }
-
