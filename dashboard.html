@@ -16,8 +16,7 @@
 
     <div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#050607; z-index:9999; display:flex; justify-content:center; align-items:center; color: #c8aa6e;">
         <div style="text-align: center;">
-            <h2 style="font-family: sans-serif; font-weight: 300; margin-bottom: 10px;">Carregando Rift Analysis...</h2>
-            <small style="color: #666;">Conectando ao Banco de Dados</small>
+            <h2 style="font-family: sans-serif; font-weight: 300; margin-bottom: 10px;">Iniciando Sistema...</h2>
         </div>
     </div>
 
@@ -30,7 +29,9 @@
             
             <nav>
                 <a href="#" class="active"><i class="material-icons">dashboard</i> Visão Geral</a>
-                </nav>
+                <a href="#"><i class="material-icons">bar_chart</i> Partidas</a>
+                <a href="#"><i class="material-icons">settings</i> Config</a>
+            </nav>
 
             <div class="user-info">
                 <p id="userNickDisplay" style="color: #8a92a3; font-size: 0.9rem; margin-bottom: 10px;">Visitante</p>
@@ -42,8 +43,8 @@
             
             <header class="dashboard-header">
                 <div class="header-content">
-                    <h1 id="welcomeMsg">Bem-vindo ao Rift.</h1>
-                    <p style="color: #8a92a3; margin-top: 5px;">Digite um nick para analisar a performance.</p>
+                    <h1 id="welcomeMsg">Bem-vindo.</h1>
+                    <p style="color: #8a92a3; margin-top: 5px;">Digite um nick para iniciar a análise.</p>
                 </div>
 
                 <div class="search-container">
@@ -51,7 +52,7 @@
                         <i class="material-icons search-icon">search</i>
                         <input type="text" id="playerSearch" placeholder="Buscar Invocador..." autocomplete="off">
                     </div>
-                    <div class="suggestions-box" id="suggestionsBox"></div>
+                    <div class="suggestions-box" id="suggestionsBox" style="display: none;"></div>
                 </div>
             </header>
 
@@ -71,10 +72,10 @@
                     <h3>Campeão Mais Jogado</h3>
                     <div style="margin-top: 15px;">
                         <div class="champ-badge">
-                            <img id="imgMainChamp" src="https://ddragon.leagueoflegends.com/cdn/14.1.1/img/profileicon/29.png" alt="Campeão">
+                            <img id="imgMainChamp" src="https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/29.png" alt="Campeão">
                             <span id="txtMainChamp">...</span>
                         </div>
-                        <p id="txtMainChampStats" style="color: #8a92a3; font-size: 0.85rem; margin-top: 8px;">-</p>
+                        <p id="txtMainChampStats" style="color: #8a92a3; font-size: 0.85rem; margin-top: 8px;">Aguardando dados...</p>
                     </div>
                 </div>
 
