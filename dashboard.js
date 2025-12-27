@@ -1,85 +1,101 @@
 // =========================================================
-// 1. SETUP INICIAL
+// SETUP BÁSICO
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Cache dos Elementos da Tela (Para não ficar buscando o tempo todo)
 const UI = {
-    loading: document.getElementById('loadingScreen'),
-    welcome: document.getElementById('welcomeMsg'),
-    userDisplay: document.getElementById('userNickDisplay'),
     search: document.getElementById('playerSearch'),
-    suggestions: document.getElementById('suggestionsBox'),
-    logout: document.getElementById('logoutBtn'),
-    
-    // Cards de Stats
-    winrate: document.getElementById('valWinrate'),
-    kda: document.getElementById('valKDA'),
-    champName: document.getElementById('txtMainChamp'),
-    champImg: document.getElementById('imgMainChamp'),
-    champStats: document.getElementById('txtMainChampStats'),
-    
-    // Canvas do Gráfico
-    chartCanvas: document.getElementById('resourceChart')
+    logout: document.getElementById('logoutBtn')
 };
 
-let chartInstance = null; // Guardará o gráfico futuro
-
 // =========================================================
-// 2. CICLO DE VIDA
+// INICIALIZAÇÃO
 // =========================================================
+function init() {
+    console.log("Modo de Debug Ativado 🛠️");
 
-// Função principal que roda ao abrir a página
-async function init() {
-    console.log("Sistema iniciando...");
-    setupEvents();
-    await checkSession();
-}
-
-// Configura cliques e teclas
-function setupEvents() {
-    // Botão Sair
+    // Logout
     UI.logout.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
         window.location.href = "index.html";
     });
 
-    // Barra de Pesquisa (Apenas logs por enquanto)
+    // Evento de Busca (Enter)
     UI.search.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             const termo = UI.search.value;
-            console.log(`Usuário apertou Enter buscando: ${termo}`);
-            // AQUI ENTRARÁ A FUNÇÃO DE BUSCA FUTURAMENTE
-            alert(`Você digitou: ${termo}. (Busca ainda não implementada)`);
+            console.clear(); // Limpa o console para facilitar a leitura
+            console.log(`🔎 Iniciando busca por: "${termo}"...`);
+            fetchAndLogMatches(termo);
         }
     });
 }
 
-// Verifica Login e Tira o Loading
-async function checkSession() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    
-    if (!session) {
-        // Se não tiver logado, chuta pra fora
-        window.location.href = "index.html";
-        return;
-    }
+// =========================================================
+// FUNÇÃO DE DIAGNÓSTICO
+// =========================================================
+async function fetchAndLogMatches(nick) {
+    try {
+        // 1. Busca ampla no banco
+        const { data, error } = await supabaseClient
+            .from('partidas_br')
+            .select('*')
+            .ilike('Player Name', `%${nick}%`);
 
-    // Se logou, atualiza a UI básica
-    const user = session.user;
-    const nick = user.user_metadata.lol_nick || "Jogador";
-    
-    UI.userDisplay.innerText = user.user_metadata.full_name || "Conectado";
-    UI.welcome.innerText = `Olá, ${nick}.`;
-    
-    // Some com a tela de carregamento
-    setTimeout(() => {
-        UI.loading.style.display = 'none';
-    }, 500);
+        if (error) {
+            console.error("❌ Erro no Supabase:", error);
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            console.warn("⚠️ Nenhum dado bruto encontrado no banco.");
+            return;
+        }
+
+        console.log(`📦 Dados brutos recebidos: ${data.length} linhas.`);
+
+        // 2. Filtro Rigoroso (Lógica Excel)
+        // Só aceita se o nome do jogador contiver o termo pesquisado
+        const dadosDoJogador = data.filter(linha => 
+            linha['Player Name'].toLowerCase().includes(nick.toLowerCase())
+        );
+
+        console.log(`👤 Linhas correspondentes ao nick "${nick}": ${dadosDoJogador.length}`);
+
+        // 3. Extração dos Dados Solicitados (Match ID e Champion)
+        // Mapeamos para um objeto simples para facilitar a leitura no console
+        const resultadoLimpo = dadosDoJogador.map(linha => {
+            return {
+                MatchID: linha['Match ID'],
+                Champion: linha['Champion'],
+                // Adicionei o PlayerName só para vc confirmar que é o cara certo
+                PlayerName: linha['Player Name'] 
+            };
+        });
+
+        // 4. Exibe a tabela no Console
+        console.table(resultadoLimpo);
+
+        // Verifica se tem duplicatas visuais
+        verificarDuplicatas(resultadoLimpo);
+
+    } catch (err) {
+        console.error("Erro fatal:", err);
+    }
 }
 
-// Inicia o App
+function verificarDuplicatas(lista) {
+    const ids = lista.map(item => item.MatchID);
+    const unicos = new Set(ids);
+    
+    if (ids.length !== unicos.size) {
+        console.warn(`⚠️ ATENÇÃO: Há ${ids.length - unicos.size} Match IDs duplicados nesta lista!`);
+    } else {
+        console.log("✅ Não foram encontradas duplicatas de Match ID na lista filtrada.");
+    }
+}
+
 init();
