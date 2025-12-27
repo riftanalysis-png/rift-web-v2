@@ -11,6 +11,7 @@ const UI = {
     logout: document.getElementById('logoutBtn')
 };
 
+// Variáveis Globais
 let chartBubble = null;
 let chartBar = null;
 let chartXP = null;
@@ -20,7 +21,7 @@ let chartImpacto = null;
 // 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Dashboard Boxplot Iniciado");
+    console.log("🚀 Dashboard Final v2 Iniciado");
 
     if (UI.logout) {
         UI.logout.addEventListener('click', async () => {
@@ -66,7 +67,7 @@ async function buscarDados(nick) {
             new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
         );
 
-        console.log(`✅ ${dadosUnicos.length} partidas únicas carregadas.`);
+        console.log(`✅ ${dadosUnicos.length} partidas carregadas.`);
         renderizarGraficos(dadosUnicos);
 
     } catch (err) {
@@ -87,7 +88,7 @@ async function renderizarGraficos(dados) {
     renderizarFarm(dadosRecentes);
     renderizarXPProbability(dadosCompletos);
     
-    // --- BOXPLOT AQUI ---
+    // --- BOXPLOT CORRIGIDO ---
     renderizarImpactoXP(dadosCompletos);
 }
 
@@ -102,7 +103,6 @@ function renderizarBubble(dados, imagensMap) {
     const bubbleData = dados.map(d => {
         let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
         const gpm = d['Gold Earned'] / duracao;
-
         const ESCALA_BASE = 45; 
         const radiusPixel = (gpm / 450) * ESCALA_BASE;
 
@@ -126,10 +126,8 @@ function renderizarBubble(dados, imagensMap) {
                 const dataPoint = bubbleData[index];
                 const img = imagensMap[dataPoint.champion];
                 if (!img) return;
-
                 const { x, y } = element.tooltipPosition();
                 const radius = element.options.radius;
-
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -137,7 +135,6 @@ function renderizarBubble(dados, imagensMap) {
                 ctx.clip();
                 ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
                 ctx.restore();
-
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.lineWidth = 3;
@@ -163,9 +160,7 @@ function renderizarBubble(dados, imagensMap) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    callbacks: {
-                        label: (ctx) => `${ctx.raw.champion}: ${ctx.raw.rawDamage} Dano | ${ctx.raw.gpm} GPM`
-                    }
+                    callbacks: { label: (ctx) => `${ctx.raw.champion}: ${ctx.raw.rawDamage} Dano | ${ctx.raw.gpm} GPM` }
                 }
             },
             scales: {
@@ -212,7 +207,7 @@ function renderizarFarm(dados) {
 }
 
 // ---------------------------------------------------------
-// C. GRÁFICO DE PROBABILIDADE (Line)
+// C. GRÁFICO DE PROBABILIDADE
 // ---------------------------------------------------------
 function renderizarXPProbability(dados) {
     const ctx = document.getElementById('graficoXPWinrate');
@@ -276,7 +271,7 @@ function renderizarXPProbability(dados) {
 }
 
 // ---------------------------------------------------------
-// D. GRÁFICO BOXPLOT MANUAL (Custom Render)
+// D. GRÁFICO BOXPLOT MANUAL (CORRIGIDO)
 // ---------------------------------------------------------
 function renderizarImpactoXP(dados) {
     const ctx = document.getElementById('graficoImpactoXP');
@@ -284,33 +279,31 @@ function renderizarImpactoXP(dados) {
     if (chartImpacto) chartImpacto.destroy();
 
     // 1. Extrair arrays de XP Diff
-    const xpWins = dados
-        .filter(d => d['Win Rate %'] === 1)
-        .map(d => d["XP Diff 12'"] || d["XP Diff 12"] || 0);
-
-    const xpLosses = dados
-        .filter(d => d['Win Rate %'] === 0)
-        .map(d => d["XP Diff 12'"] || d["XP Diff 12"] || 0);
+    const xpWins = dados.filter(d => d['Win Rate %'] === 1).map(d => d["XP Diff 12'"] || d["XP Diff 12"] || 0);
+    const xpLosses = dados.filter(d => d['Win Rate %'] === 0).map(d => d["XP Diff 12'"] || d["XP Diff 12"] || 0);
 
     // 2. Calcular Quartis
     const statsWin = calcularQuartis(xpWins);
     const statsLoss = calcularQuartis(xpLosses);
 
-    // 3. Plugin para desenhar Bigodes (Whiskers) e Mediana
+    // 3. Plugin de Renderização (Desenho Manual)
     const boxPlotRenderer = {
         id: 'boxPlotRenderer',
         afterDatasetsDraw(chart) {
             const { ctx, scales: { x, y } } = chart;
             
-            // Loopa pelos 2 datasets (Vitória e Derrota)
+            // Pega os dados estatísticos que salvamos dentro do dataset (ver linha 372)
+            const dataset = chart.data.datasets[0];
+            const statsArray = dataset.customStats; // [statsWin, statsLoss]
+
             chart.getDatasetMeta(0).data.forEach((bar, index) => {
-                const stats = index === 0 ? statsWin : statsLoss;
+                const stats = statsArray[index];
                 if (!stats) return;
 
-                const yPos = bar.y; // Centro vertical da barra
-                const height = bar.height; // Altura da barra
-                
-                // Coordenadas X para cada estatística
+                const yPos = bar.y; 
+                const height = bar.height;
+
+                // Coordenadas X
                 const xMin = x.getPixelForValue(stats.min);
                 const xQ1 = x.getPixelForValue(stats.q1);
                 const xMedian = x.getPixelForValue(stats.median);
@@ -318,37 +311,37 @@ function renderizarImpactoXP(dados) {
                 const xMax = x.getPixelForValue(stats.max);
 
                 ctx.save();
-                ctx.strokeStyle = index === 0 ? '#00BFFF' : '#FF4500'; // Azul ou Vermelho
+                
+                // MUDANÇA: Usei BRANCO ('#FFFFFF') para garantir contraste alto
+                ctx.strokeStyle = '#FFFFFF'; 
                 ctx.lineWidth = 2;
 
-                // A. Linha da Mediana (Vertical dentro da caixa)
+                // A. Linha da Mediana (Vertical dentro da barra)
                 ctx.beginPath();
-                ctx.moveTo(xMedian, yPos - height/2);
-                ctx.lineTo(xMedian, yPos + height/2);
+                ctx.moveTo(xMedian, yPos - height/1.5); // Um pouco maior que a barra
+                ctx.lineTo(xMedian, yPos + height/1.5);
                 ctx.stroke();
 
-                // B. Bigode Esquerdo (Min até Q1)
+                // B. Bigode Esquerdo (Min -> Q1)
                 ctx.beginPath();
                 ctx.moveTo(xMin, yPos);
                 ctx.lineTo(xQ1, yPos);
                 ctx.stroke();
-
-                // Cap do Bigode Esquerdo (Traço vertical no Min)
+                // Cap do Bigode Esquerdo ( | )
                 ctx.beginPath();
-                ctx.moveTo(xMin, yPos - height/4);
-                ctx.lineTo(xMin, yPos + height/4);
+                ctx.moveTo(xMin, yPos - height/3);
+                ctx.lineTo(xMin, yPos + height/3);
                 ctx.stroke();
 
-                // C. Bigode Direito (Q3 até Max)
+                // C. Bigode Direito (Q3 -> Max)
                 ctx.beginPath();
                 ctx.moveTo(xQ3, yPos);
                 ctx.lineTo(xMax, yPos);
                 ctx.stroke();
-
-                // Cap do Bigode Direito (Traço vertical no Max)
+                // Cap do Bigode Direito ( | )
                 ctx.beginPath();
-                ctx.moveTo(xMax, yPos - height/4);
-                ctx.lineTo(xMax, yPos + height/4);
+                ctx.moveTo(xMax, yPos - height/3);
+                ctx.lineTo(xMax, yPos + height/3);
                 ctx.stroke();
 
                 ctx.restore();
@@ -361,23 +354,25 @@ function renderizarImpactoXP(dados) {
         data: {
             labels: ['Vitórias', 'Derrotas'],
             datasets: [{
-                label: 'Faixa de XP (Q1 a Q3)',
-                // Usamos "Floating Bars" [Inicio, Fim] para fazer a caixa do meio
+                label: 'Distribuição XP',
+                // A barra "flutuante" vai do Q1 ao Q3 (O corpo da caixa)
                 data: [
                     [statsWin ? statsWin.q1 : 0, statsWin ? statsWin.q3 : 0],
                     [statsLoss ? statsLoss.q1 : 0, statsLoss ? statsLoss.q3 : 0]
                 ],
+                // Salvamos os stats completos AQUI para o plugin ler
+                customStats: [statsWin, statsLoss],
                 backgroundColor: [
-                    'rgba(0, 191, 255, 0.4)', // Azul Transparente
-                    'rgba(255, 69, 0, 0.4)'   // Vermelho Transparente
+                    'rgba(0, 191, 255, 0.5)', 
+                    'rgba(255, 69, 0, 0.5)'
                 ],
                 borderColor: ['#00BFFF', '#FF4500'],
                 borderWidth: 1,
-                borderSkipped: false // Fecha a caixa completa
+                borderSkipped: false
             }]
         },
         options: {
-            indexAxis: 'y', // Gráfico Horizontal
+            indexAxis: 'y', // Horizontal
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
@@ -385,7 +380,9 @@ function renderizarImpactoXP(dados) {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            const stats = context.dataIndex === 0 ? statsWin : statsLoss;
+                            // Tooltip detalhado
+                            const stats = context.dataset.customStats[context.dataIndex];
+                            if(!stats) return "Sem dados";
                             return [
                                 `Max: ${stats.max}`,
                                 `Q3 (75%): ${stats.q3}`,
@@ -401,22 +398,19 @@ function renderizarImpactoXP(dados) {
                 x: {
                     grid: { color: '#333' },
                     ticks: { color: '#eee' },
-                    title: { display: true, text: 'XP Diff (Negativo = Atrás | Positivo = Frente)', color: '#aaa' }
+                    title: { display: true, text: 'Vantagem de XP (Boxplot)', color: '#aaa' }
                 },
                 y: { grid: { display: false }, ticks: { color: '#eee', font: { weight: 'bold' } } }
             }
         },
+        // Registra o plugin nesta instância
         plugins: [boxPlotRenderer]
     });
 }
 
-// Função Auxiliar de Matemática
 function calcularQuartis(arr) {
     if (!arr || arr.length === 0) return null;
-    
-    // Ordena numérico
     arr.sort((a, b) => a - b);
-    
     const min = arr[0];
     const max = arr[arr.length - 1];
     
@@ -440,9 +434,6 @@ function calcularQuartis(arr) {
     };
 }
 
-// ---------------------------------------------------------
-// UTILITÁRIO: IMAGENS
-// ---------------------------------------------------------
 async function carregarImagensCampeoes(dados) {
     const map = {};
     const promessas = dados.map(d => {
