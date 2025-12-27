@@ -39,22 +39,65 @@ const supabaseClient = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABAS
 let chartInstance = null;
 
 // ==========================================
-// 2. SERVIÇOS (DADOS)
+// 2. SERVIÇOS (DADOS) - ATUALIZADO
 // ==========================================
 const PlayerService = {
     async fetchHistory(nick) {
         try {
-            const { data, error } = await supabaseClient
+            // Se o nick vier com tag (Ex: Zekas#2002), buscamos exato.
+            // Se vier sem, usamos o like (mas isso pode causar o problema de puxar outros).
+            const isExactMatch = nick.includes('#');
+            
+            let query = supabaseClient
                 .from('partidas_br')
-                .select('*')
-                .ilike('Player Name', nick);
+                .select('*');
+
+            if (isExactMatch) {
+                // Tenta buscar exatamente pelo "Nome#Tag" se sua coluna 'Player Name' salva assim
+                query = query.eq('Player Name', nick);
+            } else {
+                query = query.ilike('Player Name', `%${nick}%`);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
-            return data || [];
+            if (!data) return [];
+
+            // --- FILTRAGEM E LIMPEZA (A Mágica acontece aqui) ---
+            const cleanedData = this.removeDuplicatesAndGhosts(data);
+            
+            console.log(`Dados brutos: ${data.length} | Dados limpos: ${cleanedData.length}`);
+            return cleanedData;
+
         } catch (err) {
             console.error("Erro Supabase:", err);
             throw err;
         }
+    },
+
+    // Função auxiliar para limpar a sujeira
+    removeDuplicatesAndGhosts(matches) {
+        const uniqueMatches = [];
+        const seenIds = new Set();
+
+        matches.forEach(match => {
+            // 1. Validação de "Fantasma": Se não tem Campeão ou Dano, ignora
+            if (!match['Champion'] || !match['Damage/Min']) return;
+
+            // 2. Criação de ID Único para evitar duplicatas
+            // Se você tiver uma coluna 'Match ID' no banco, use: const id = match['Match ID'];
+            // Se não tiver, criamos uma "assinatura" baseada nos stats (improvável 2 partidas iguais)
+            const signature = match['Match ID'] || 
+                              `${match['Champion']}-${match['KDA']}-${match['Gold/Min']}-${match['Damage/Min']}`;
+
+            if (!seenIds.has(signature)) {
+                seenIds.add(signature);
+                uniqueMatches.push(match);
+            }
+        });
+
+        return uniqueMatches;
     },
 
     async checkSession() {
