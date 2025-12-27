@@ -1,25 +1,25 @@
 // =========================================================
-// 1. CONFIGURAÇÃO & CORES (PALETA SESSHOMARU)
+// 1. CONFIGURAÇÃO & TEMA (SESSHOMARU)
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// CORES GLOBAIS
-const COLORS = {
-    gold: '#D4AF37',   // Elite / Vitória
-    red:  '#B22222',   // Impacto / Derrota / Alerta
-    blue: '#2C4F7C',   // Controle / Frio
-    metal: '#9FA4A9',  // Elementos secundários
-    grid: '#2A2F3A',   // Linhas de grade
-    text: '#B8BCC4'    // Texto de eixos
+// CORES DA PALETA
+const THEME = {
+    gold: '#D4AF37',
+    red:  '#B22222',
+    blue: '#2C4F7C',
+    text: '#8A8F98', // Texto secundário
+    grid: '#23262E'  // Grade sutil
 };
 
-// Configuração padrão de Fontes para todos os gráficos
+// Defaults do Chart.js para o estilo Minimalista
 Chart.defaults.font.family = "'Inter', sans-serif";
-Chart.defaults.color = COLORS.text;
-Chart.defaults.borderColor = COLORS.grid;
+Chart.defaults.font.size = 11;
+Chart.defaults.color = THEME.text;
+Chart.defaults.borderColor = THEME.grid;
 
 const UI = {
     search: document.getElementById('playerSearch'),
@@ -35,7 +35,7 @@ let charts = {
 // 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Dashboard Sesshomaru Edition Iniciado");
+    console.log("🚀 Nexus Analytics Iniciado");
 
     if (UI.logout) UI.logout.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
@@ -48,7 +48,7 @@ function init() {
 }
 
 // =========================================================
-// 3. BUSCA DE DADOS
+// 3. BUSCA
 // =========================================================
 async function buscarDados(nick) {
     console.clear();
@@ -75,7 +75,6 @@ async function buscarDados(nick) {
             new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
         );
 
-        console.log(`✅ ${dadosUnicos.length} partidas carregadas.`);
         renderizarGraficos(dadosUnicos);
 
     } catch (err) {
@@ -98,7 +97,7 @@ async function renderizarGraficos(dados) {
     renderizarRelacionais(dadosCompletos);
 }
 
-// A. BUBBLE CHART (SCATTER)
+// A. SCATTER HERO (Carry)
 function renderizarBubble(dados, imagensMap) {
     const ctx = document.getElementById('graficoPrincipal');
     if (!ctx) return;
@@ -134,10 +133,9 @@ function renderizarBubble(dados, imagensMap) {
                 ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
                 ctx.restore();
                 
-                // Borda: Dourado para Vitória, Vermelho para Derrota
                 ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); 
-                ctx.lineWidth = 2.5;
-                ctx.strokeStyle = dataPoint.win ? COLORS.gold : COLORS.red; 
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = dataPoint.win ? THEME.gold : THEME.red; 
                 ctx.stroke();
             });
         }
@@ -150,17 +148,17 @@ function renderizarBubble(dados, imagensMap) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw.champion}: ${ctx.raw.rawDamage} Dano` } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw.champion} | ${ctx.raw.rawDamage} Dano` } } },
             scales: { 
-                x: { title: { display: true, text: 'Dano/Min', color: COLORS.text }, grid: { color: COLORS.grid } }, 
-                y: { title: { display: true, text: 'Ouro/Min', color: COLORS.text }, grid: { color: COLORS.grid } } 
+                x: { title: { display: true, text: 'Dano/Min' }, grid: { color: THEME.grid } }, 
+                y: { title: { display: true, text: 'Ouro/Min' }, grid: { color: THEME.grid } } 
             }
         },
         plugins: [imageProfilePlugin]
     });
 }
 
-// B. FARM CHART (Barras)
+// B. FARM CHART
 function renderizarFarm(dados) {
     const ctx = document.getElementById('graficoFarm');
     if (!ctx) return;
@@ -173,26 +171,29 @@ function renderizarFarm(dados) {
             datasets: [{ 
                 label: 'CS/Min', 
                 data: dados.map(d => d['Farm/Min']), 
-                backgroundColor: COLORS.blue, // Azul Controle
-                borderColor: COLORS.metal,
-                borderWidth: 0,
-                borderRadius: 4
+                backgroundColor: THEME.blue, 
+                borderRadius: 2,
+                barThickness: 'flex',
+                maxBarThickness: 30
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, grid: { color: COLORS.grid } }, x: { display: false } }
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { beginAtZero: true, grid: { color: THEME.grid } }, 
+                x: { display: false, grid: { display: false } } // Limpeza visual
+            }
         }
     });
 }
 
-// C. XP PROBABILITY (Linha)
+// C. XP PROBABILITY
 function renderizarXPProbability(dados) {
     const ctx = document.getElementById('graficoXPWinrate');
     if (!ctx) return;
     if (charts.xpLine) charts.xpLine.destroy();
 
-    // ... lógica de buckets ...
     const buckets = {};
     const TAMANHO_BALDE = 500; 
     dados.forEach(d => {
@@ -217,21 +218,22 @@ function renderizarXPProbability(dados) {
             datasets: [{ 
                 label: 'Win Rate %', 
                 data: chartData.map(d => d.y), 
-                borderColor: COLORS.gold, // Linha Dourada
-                backgroundColor: 'rgba(212, 175, 55, 0.1)', // Sombra Dourada
-                borderWidth: 3, 
+                borderColor: THEME.gold, 
+                backgroundColor: 'rgba(212, 175, 55, 0.05)', 
+                borderWidth: 2, 
                 tension: 0.4, 
                 fill: true,
-                pointBackgroundColor: COLORS.bg,
-                pointBorderColor: COLORS.gold,
-                pointRadius: 5
+                pointBackgroundColor: '#0F1115',
+                pointBorderColor: THEME.gold,
+                pointRadius: 4
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
             scales: { 
-                y: { beginAtZero: true, max: 100, title: { display: true, text: 'Probabilidade (%)', color: COLORS.text } }, 
-                x: { title: { display: true, text: 'XP Diff @ 12', color: COLORS.text } } 
+                y: { beginAtZero: true, max: 100, title: { display: true, text: 'Probabilidade (%)' } }, 
+                x: { title: { display: true, text: 'XP Diff @ 12' }, grid: { display: false } } 
             }
         }
     });
@@ -262,15 +264,12 @@ function renderizarImpactoXP(dados) {
                 const yMedian = y.getPixelForValue(stats.median); const yQ3 = y.getPixelForValue(stats.q3);
                 const yMax = y.getPixelForValue(stats.max);
                 
-                ctx.save(); 
-                ctx.strokeStyle = COLORS.text; // Branco/Cinza claro para as linhas
-                ctx.lineWidth = 2;
-                // Desenhos dos bigodes e mediana...
-                ctx.beginPath(); ctx.moveTo(xPos - width/1.5, yMedian); ctx.lineTo(xPos + width/1.5, yMedian); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(xPos, yMin); ctx.lineTo(xPos, yQ1); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(xPos - width/3, yMin); ctx.lineTo(xPos + width/3, yMin); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(xPos, yQ3); ctx.lineTo(xPos, yMax); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(xPos - width/3, yMax); ctx.lineTo(xPos + width/3, yMax); ctx.stroke();
+                ctx.save(); ctx.strokeStyle = '#F5F5F2'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(xPos - width/2, yMedian); ctx.lineTo(xPos + width/2, yMedian); ctx.stroke(); // Mediana
+                ctx.beginPath(); ctx.moveTo(xPos, yMin); ctx.lineTo(xPos, yQ1); ctx.stroke(); // Bigode Baixo
+                ctx.beginPath(); ctx.moveTo(xPos - width/4, yMin); ctx.lineTo(xPos + width/4, yMin); ctx.stroke(); // Cap Baixo
+                ctx.beginPath(); ctx.moveTo(xPos, yQ3); ctx.lineTo(xPos, yMax); ctx.stroke(); // Bigode Cima
+                ctx.beginPath(); ctx.moveTo(xPos - width/4, yMax); ctx.lineTo(xPos + width/4, yMax); ctx.stroke(); // Cap Cima
                 ctx.restore();
             });
         }
@@ -279,34 +278,38 @@ function renderizarImpactoXP(dados) {
     charts.xpBox = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Vitórias', 'Derrotas'],
+            labels: ['Vitória', 'Derrota'],
             datasets: [{
                 label: 'Distribuição XP',
                 data: [[statsWin ? statsWin.q1 : 0, statsWin ? statsWin.q3 : 0], [statsLoss ? statsLoss.q1 : 0, statsLoss ? statsLoss.q3 : 0]],
                 customStats: [statsWin, statsLoss],
-                backgroundColor: [COLORS.gold + '80', COLORS.red + '80'], // Dourado e Vermelho translúcidos
-                borderColor: [COLORS.gold, COLORS.red], 
-                borderWidth: 1, borderSkipped: false
+                backgroundColor: [THEME.gold + '66', THEME.red + '66'], 
+                borderColor: [THEME.gold, THEME.red], 
+                borderWidth: 1, borderSkipped: false,
+                barThickness: 60
             }]
         },
         options: {
             indexAxis: 'x', responsive: true, maintainAspectRatio: false,
-            scales: { y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.text } }, x: { grid: { display: false }, ticks: { color: COLORS.text, font: { weight: 'bold' } } } },
+            scales: { 
+                y: { grid: { color: THEME.grid }, title: { display: true, text: 'Vantagem XP' } }, 
+                x: { grid: { display: false } } 
+            },
             plugins: { legend: { display: false } }
         },
         plugins: [boxPlotRenderer]
     });
 }
 
-// E. RELACIONAIS (Scatter + Regressão)
+// E. RELACIONAIS
 function renderizarRelacionais(dados) {
     const configs = [
-        { id: 'relChart1', xKey: "Deaths até 12min", yKey: 'Deaths', labelX: 'Mortes @ 12', labelY: 'Mortes Totais' },
-        { id: 'relChart2', xKey: 'Vision Score/Min', yKey: 'Kill Participation', labelX: 'Visão/Min', labelY: 'Kill Part (0-1)' },
-        { id: 'relChart3', xKey: "Deaths até 12min", yKey: "XP Diff 12'", labelX: 'Mortes @ 12', labelY: 'XP Diff @ 12' },
-        { id: 'relChart4', xKey: 'Kill Participation', yKey: "XP Diff 12'", labelX: 'Kill Part', labelY: 'XP Diff @ 12' },
-        { id: 'relChart5', xKey: "Gold Diff 12'", yKey: "CS Diff 12'", labelX: 'Gold Diff @ 12', labelY: 'CS Diff @ 12' },
-        { id: 'relChart6', xKey: 'Deaths', yKey: 'Kill Participation', labelX: 'Mortes Totais', labelY: 'Kill Part' }
+        { id: 'relChart1', xKey: "Deaths até 12min", yKey: 'Deaths', labelX: 'Mortes @ 12', labelY: 'Total' },
+        { id: 'relChart2', xKey: 'Vision Score/Min', yKey: 'Kill Participation', labelX: 'Visão/Min', labelY: 'KP%' },
+        { id: 'relChart3', xKey: "Deaths até 12min", yKey: "XP Diff 12'", labelX: 'Mortes @ 12', labelY: 'XP Diff' },
+        { id: 'relChart4', xKey: 'Kill Participation', yKey: "XP Diff 12'", labelX: 'KP%', labelY: 'XP Diff' },
+        { id: 'relChart5', xKey: "Gold Diff 12'", yKey: "CS Diff 12'", labelX: 'Gold Diff', labelY: 'CS Diff' },
+        { id: 'relChart6', xKey: 'Deaths', yKey: 'Kill Participation', labelX: 'Mortes', labelY: 'KP%' }
     ];
 
     const chartInstances = ['rel1', 'rel2', 'rel3', 'rel4', 'rel5', 'rel6'];
@@ -327,33 +330,31 @@ function renderizarRelacionais(dados) {
             data: {
                 datasets: [
                     {
-                        label: 'Partidas',
-                        data: points,
-                        backgroundColor: COLORS.blue, // Pontos Azuis (Controle)
-                        borderColor: COLORS.blue,
-                        radius: 3, hoverRadius: 5
+                        label: 'Jogo', data: points,
+                        backgroundColor: THEME.blue,
+                        radius: 2, hoverRadius: 4
                     },
                     {
                         type: 'line', label: `R²=${reg.r2}`,
                         data: trendLine,
-                        borderColor: COLORS.metal, // Linha Metálica
-                        borderWidth: 2, pointRadius: 0, borderDash: [4, 4], fill: false
+                        borderColor: THEME.text,
+                        borderWidth: 1, pointRadius: 0, borderDash: [3, 3], fill: false
                     }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, title: { display: true, text: `R² = ${reg.r2}`, color: COLORS.text, font: { size: 10 } } },
+                plugins: { legend: { display: false }, title: { display: true, text: `R² = ${reg.r2}`, color: THEME.text, font: { size: 9 } } },
                 scales: { 
-                    x: { title: { display: true, text: cfg.labelX, color: COLORS.text, font: {size: 10} }, grid: { color: COLORS.grid } }, 
-                    y: { title: { display: true, text: cfg.labelY, color: COLORS.text, font: {size: 10} }, grid: { color: COLORS.grid } } 
+                    x: { title: { display: true, text: cfg.labelX }, grid: { display: false } }, 
+                    y: { title: { display: true, text: cfg.labelY }, grid: { color: THEME.grid } } 
                 }
             }
         });
     });
 }
 
-// Funções Auxiliares (Regressão, Quartis, Imagens) continuam iguais...
+// Funções Auxiliares
 function calcularQuartis(arr) {
     if (!arr || arr.length === 0) return null;
     arr.sort((a, b) => a - b);
