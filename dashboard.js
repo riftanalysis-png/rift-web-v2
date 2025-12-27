@@ -14,89 +14,36 @@ const logoutBtn = document.getElementById('logoutBtn');
 const searchInput = document.getElementById('playerSearch');
 const suggestionsBox = document.getElementById('suggestionsBox');
 
-// Elementos que vão mudar com a busca
+// Elementos Visuais
 const displayWinrate = document.querySelector('.card:nth-child(1) .big-number');
 const displayKDA = document.querySelector('.card:nth-child(2) .big-number');
 const displayMainChampName = document.querySelector('.champ-badge span');
 const displayMainChampImg = document.querySelector('.champ-badge img');
 const displayMainChampStats = document.querySelector('.card:nth-child(3) p');
 
-// Variável global para o gráfico
 let chartInstance = null;
 
 // ==========================================
-// 2. BANCO DE DADOS MOCK (OS 5 JOGADORES)
+// 2. LISTA DE SUGESTÕES
 // ==========================================
-const mockPlayers = {
-    "Zekas#2002": {
-        winrate: "58.2%", kda: "4.1 : 1", main: "Zed", mainStats: "42 Partidas (62% WR)",
-        chartData: [
-            { x: 950, y: 480, r: 28, champ: 'Zed', win: true },
-            { x: 800, y: 450, r: 20, champ: 'Yone', win: false },
-            { x: 1100, y: 550, r: 35, champ: 'Sylas', win: true }
-        ]
-    },
-    "han dao#EGC": {
-        winrate: "49.5%", kda: "2.8 : 1", main: "LeeSin", mainStats: "30 Partidas (51% WR)",
-        chartData: [
-            { x: 500, y: 400, r: 15, champ: 'LeeSin', win: true },
-            { x: 450, y: 380, r: 10, champ: 'Viego', win: false },
-            { x: 600, y: 450, r: 22, champ: 'Graves', win: true }
-        ]
-    },
-    "Pilot#br11": {
-        winrate: "61.0%", kda: "5.2 : 1", main: "Jhin", mainStats: "55 Partidas (65% WR)",
-        chartData: [
-            { x: 900, y: 600, r: 30, champ: 'Jhin', win: true },
-            { x: 850, y: 550, r: 25, champ: 'Kaisa', win: true },
-            { x: 400, y: 300, r: 10, champ: 'Ezreal', win: false }
-        ]
-    },
-    "Celo#br2": {
-        winrate: "52.4%", kda: "3.4 : 1", main: "Thresh", mainStats: "18 Partidas (55% WR)",
-        chartData: [
-            { x: 200, y: 250, r: 15, champ: 'Thresh', win: true },
-            { x: 300, y: 280, r: 18, champ: 'Nautilus', win: true },
-            { x: 150, y: 200, r: 10, champ: 'Lulu', win: false }
-        ]
-    },
-    "Gatovisck#愛憎の影": {
-        winrate: "45.0%", kda: "1.9 : 1", main: "Yasuo", mainStats: "100 Partidas (40% WR)",
-        chartData: [
-            { x: 800, y: 400, r: 10, champ: 'Yasuo', win: false },
-            { x: 850, y: 410, r: 12, champ: 'Yone', win: false },
-            { x: 600, y: 500, r: 25, champ: 'Malphite', win: true }
-        ]
-    }
-};
-
-const suggestedNicks = Object.keys(mockPlayers);
+const suggestedNicks = [
+    "Zekas#2002", "han dao#EGC", "Pilot#br11", "Celo#br2", "Gatovisck#愛憎の影"
+];
 
 // ==========================================
 // 3. LÓGICA DE BUSCA
 // ==========================================
-
-// 1. Mostrar TUDO ao clicar na caixa (Focus)
 searchInput.addEventListener('focus', () => {
-    // Se a caixa estiver vazia, mostra todos. Se tiver texto, filtra.
     const termo = searchInput.value.toLowerCase();
-    if(termo === "") {
-        renderSuggestions(suggestedNicks);
-    } else {
-        const filtrados = suggestedNicks.filter(n => n.toLowerCase().includes(termo));
-        renderSuggestions(filtrados);
-    }
+    const lista = termo === "" ? suggestedNicks : suggestedNicks.filter(n => n.toLowerCase().includes(termo));
+    renderSuggestions(lista);
     suggestionsBox.style.display = 'block';
 });
 
-// 2. Filtrar conforme você digita (Input) - ESTE ERA O QUE FALTAVA
 searchInput.addEventListener('input', (e) => {
     const termo = e.target.value.toLowerCase();
+    const nicksFiltrados = suggestedNicks.filter(nick => nick.toLowerCase().includes(termo));
     
-    const nicksFiltrados = suggestedNicks.filter(nick => 
-        nick.toLowerCase().includes(termo)
-    );
-
     if (nicksFiltrados.length > 0) {
         renderSuggestions(nicksFiltrados);
         suggestionsBox.style.display = 'block';
@@ -105,25 +52,22 @@ searchInput.addEventListener('input', (e) => {
     }
 });
 
-// 3. Esconder ao clicar fora
 document.addEventListener('click', (e) => {
     if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
         suggestionsBox.style.display = 'none';
     }
 });
 
-// Renderizar a lista HTML
 function renderSuggestions(list) {
     suggestionsBox.innerHTML = '';
     list.forEach(nick => {
         const div = document.createElement('div');
         div.className = 'suggestion-item';
-        
         const [name, tag] = nick.split('#');
         div.innerHTML = `<span>${name}</span><strong style="font-size:0.8rem; color:#666;">#${tag || ''}</strong>`;
         
         div.addEventListener('click', () => {
-            selectPlayer(nick);
+            fetchRealPlayerData(nick); 
         });
         
         suggestionsBox.appendChild(div);
@@ -131,24 +75,93 @@ function renderSuggestions(list) {
 }
 
 // ==========================================
-// 4. ATUALIZAR DASHBOARD
+// 4. BUSCAR DADOS REAIS
 // ==========================================
-function selectPlayer(nick) {
+async function fetchRealPlayerData(nick) {
     searchInput.value = nick;
     suggestionsBox.style.display = 'none';
+    welcomeMsg.innerText = `Carregando dados de ${nick}...`;
 
-    const data = mockPlayers[nick];
-    if (!data) return; 
+    try {
+        const { data, error } = await supabaseClient
+            .from('partidas_soloq') 
+            .select('*')
+            .ilike('Player Name', nick);
 
-    welcomeMsg.innerText = `Análise: ${nick}`;
-    displayWinrate.innerText = data.winrate;
-    displayKDA.innerText = data.kda;
-    
-    displayMainChampName.innerText = data.main;
-    displayMainChampImg.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${data.main}.png`;
-    displayMainChampStats.innerText = data.mainStats;
+        if (error) throw error;
 
-    updateChart(data.chartData);
+        if (!data || data.length === 0) {
+            alert("Nenhuma partida encontrada para este jogador.");
+            welcomeMsg.innerText = `Sem dados para: ${nick}`;
+            return;
+        }
+
+        // --- CÁLCULOS GERAIS (Cards) ---
+        const totalGames = data.length;
+        const wins = data.filter(match => match['Win Rate %'] == 1 || match['Win Rate %'] == 100).length;
+        const winrate = ((wins / totalGames) * 100).toFixed(1) + "%";
+
+        // Média KDA
+        let totalKDA = 0;
+        let validKDA = 0;
+        data.forEach(match => {
+             const kdaVal = parseFloat(match['KDA']);
+             if(!isNaN(kdaVal)) {
+                 totalKDA += kdaVal;
+                 validKDA++;
+             }
+        });
+        const avgKDA = validKDA > 0 ? (totalKDA / validKDA).toFixed(1) : "-";
+
+        // Main Champ
+        const champCounts = {};
+        data.forEach(match => {
+            const c = match['Champion'];
+            champCounts[c] = (champCounts[c] || 0) + 1;
+        });
+        const mainChamp = Object.keys(champCounts).reduce((a, b) => champCounts[a] > champCounts[b] ? a : b);
+
+        // Atualiza Tela
+        welcomeMsg.innerText = `Análise: ${nick}`;
+        displayWinrate.innerText = winrate;
+        displayKDA.innerText = avgKDA;
+
+        displayMainChampName.innerText = mainChamp;
+        displayMainChampImg.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${mainChamp.replace(/[^a-zA-Z0-9]/g, '')}.png`;
+        displayMainChampStats.innerText = `${champCounts[mainChamp]} Partidas`;
+
+        // --- DADOS PARA O GRÁFICO ---
+        const chartData = data.map(match => {
+            const dpm = parseFloat(match['Damage/Min']) || 0;
+            const gpm = parseFloat(match['Gold/Min']) || 1; 
+            const isWin = match['Win Rate %'] == 1 || match['Win Rate %'] == 100;
+
+            // === AQUI ESTÁ O SEU CÁLCULO ===
+            // (Damage / Gold) * 100 = Porcentagem de Eficiência
+            // Ex: 600 Dano / 400 Gold = 1.5 -> 150%
+            const eficienciaPercent = (dpm / gpm) * 100;
+
+            // Raio da Bolha:
+            // Dividimos por 6 para converter a % em pixels visualmente agradáveis.
+            // Ex: 150% vira 25px de raio.
+            const radius = eficienciaPercent / 6;
+
+            return {
+                y: dpm,    // Eixo Y: Dano
+                x: gpm,    // Eixo X: Ouro
+                r: radius < 5 ? 5 : radius, // Mínimo de 5px
+                champ: match['Champion'],
+                win: isWin,
+                efficiency: eficienciaPercent.toFixed(0) // Guardamos o valor para mostrar no tooltip
+            };
+        });
+
+        updateChart(chartData);
+
+    } catch (err) {
+        console.error("Erro:", err);
+        alert("Erro ao processar dados. Verifique o console.");
+    }
 }
 
 // ==========================================
@@ -157,7 +170,8 @@ function selectPlayer(nick) {
 function updateChart(newData) {
     const carregarImg = (nome) => {
         const img = new Image();
-        img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${nome}.png`;
+        const cleanName = nome.replace(/[^a-zA-Z0-9]/g, ''); 
+        img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${cleanName}.png`;
         return img;
     };
 
@@ -165,12 +179,10 @@ function updateChart(newData) {
     const derrotas = newData.filter(d => !d.win).map(d => ({ ...d, image: carregarImg(d.champ) }));
 
     if (chartInstance) {
-        chartInstance.data.datasets[0].data = vitorias;
-        chartInstance.data.datasets[1].data = derrotas;
-        chartInstance.update();
-    } else {
-        createChart(vitorias, derrotas);
+        chartInstance.destroy();
     }
+
+    createChart(vitorias, derrotas);
 }
 
 function createChart(vitorias, derrotas) {
@@ -181,22 +193,27 @@ function createChart(vitorias, derrotas) {
         afterDatasetDraw(chart, args, options) {
             const { ctx } = chart;
             const meta = args.meta;
+            
             meta.data.forEach((element, index) => {
                 const dataPoint = chart.data.datasets[meta.index].data[index];
                 const { x, y } = element.getProps(['x', 'y'], true);
                 const radius = element.options.radius;
                 
-                if(dataPoint.image && dataPoint.image.complete) {
+                if(dataPoint.image && dataPoint.image.complete && dataPoint.image.naturalHeight !== 0) {
                     ctx.save();
                     ctx.beginPath();
                     ctx.arc(x, y, radius, 0, Math.PI * 2, true);
                     ctx.closePath();
                     ctx.clip();
                     ctx.drawImage(dataPoint.image, x - radius, y - radius, radius * 2, radius * 2);
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = dataPoint.win ? 'rgba(83, 131, 232, 0.5)' : 'rgba(232, 64, 87, 0.5)';
+                    
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = dataPoint.win ? '#5383e8' : '#e84057';
                     ctx.stroke();
+
                     ctx.restore();
+                } else {
+                    dataPoint.image.onload = () => chart.update();
                 }
             });
         }
@@ -207,17 +224,57 @@ function createChart(vitorias, derrotas) {
         plugins: [imagePlugin],
         data: {
             datasets: [
-                { label: 'Vitória', data: vitorias, backgroundColor: 'rgba(83, 131, 232, 0.1)', borderColor: '#5383e8', borderWidth: 2, hoverRadius: 0 },
-                { label: 'Derrota', data: derrotas, backgroundColor: 'rgba(232, 64, 87, 0.1)', borderColor: '#e84057', borderWidth: 2, hoverRadius: 0 }
+                { 
+                    label: 'Vitória', 
+                    data: vitorias, 
+                    backgroundColor: 'rgba(83, 131, 232, 0.1)', 
+                    borderColor: 'transparent',
+                    hoverRadius: 0 
+                },
+                { 
+                    label: 'Derrota', 
+                    data: derrotas, 
+                    backgroundColor: 'rgba(232, 64, 87, 0.1)', 
+                    borderColor: 'transparent',
+                    hoverRadius: 0 
+                }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#13161d', titleColor: '#c8aa6e', callbacks: { label: c => ` ${c.raw.champ} | D: ${c.raw.x} | G: ${c.raw.y}` } } },
+            animation: false,
+            plugins: { 
+                legend: { display: false }, 
+                tooltip: { 
+                    backgroundColor: '#13161d', 
+                    titleColor: '#c8aa6e',
+                    bodyColor: '#fff',
+                    callbacks: { 
+                        // MOSTRA A PORCENTAGEM NO TOOLTIP
+                        label: c => {
+                            const d = c.raw;
+                            return [
+                                ` ${d.champ}`,
+                                ` Eficiência: ${d.efficiency}%`, // <--- AQUI A PORCENTAGEM
+                                ` Dano/min: ${d.y.toFixed(0)}`,
+                                ` Gold/min: ${d.x.toFixed(0)}`
+                            ];
+                        }
+                    } 
+                } 
+            },
             scales: {
-                x: { title: { display: true, text: 'Dano (DPM)', color: '#555' }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8a92a3' } },
-                y: { title: { display: true, text: 'Ouro (GPM)', color: '#555' }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8a92a3' } }
+                x: { 
+                    title: { display: true, text: 'Gold por Minuto (GPM)', color: '#8a92a3' }, 
+                    grid: { color: 'rgba(255,255,255,0.03)' }, 
+                    ticks: { color: '#8a92a3' },
+                },
+                y: { 
+                    title: { display: true, text: 'Dano por Minuto (DPM)', color: '#8a92a3' }, 
+                    grid: { color: 'rgba(255,255,255,0.03)' }, 
+                    ticks: { color: '#8a92a3' },
+                }
             }
         }
     });
@@ -239,11 +296,8 @@ async function checkSession() {
         userNickDisplay.innerText = nome;
         loadingScreen.style.display = 'none';
 
-        if (mockPlayers[nick]) {
-            selectPlayer(nick);
-        } else {
-            updateChart(mockPlayers["Zekas#2002"].chartData);
-        }
+        // Carrega o Zekas por padrão
+        fetchRealPlayerData("Zekas#2002");
     }
 }
 
