@@ -1,22 +1,12 @@
 // =========================================================
-// 1. CONFIGURAÇÃO
+// 1. SETUP INICIAL
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
-// URL da Riot mais recente para garantir que Smolder/Aurora funcionem
-const DDRAGON_VERSION = "14.23.1"; 
-
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const SUGGESTED_NICKS = [
-    "zekas#2002",
-    "han dao#EGC",
-    "Flanelinha#Veig", 
-    "MENTAL INABALADO#BR11", 
-    "black sails#五星红旗"
-];
-
+// Cache dos Elementos da Tela (Para não ficar buscando o tempo todo)
 const UI = {
     loading: document.getElementById('loadingScreen'),
     welcome: document.getElementById('welcomeMsg'),
@@ -24,289 +14,72 @@ const UI = {
     search: document.getElementById('playerSearch'),
     suggestions: document.getElementById('suggestionsBox'),
     logout: document.getElementById('logoutBtn'),
+    
+    // Cards de Stats
     winrate: document.getElementById('valWinrate'),
     kda: document.getElementById('valKDA'),
     champName: document.getElementById('txtMainChamp'),
     champImg: document.getElementById('imgMainChamp'),
     champStats: document.getElementById('txtMainChampStats'),
+    
+    // Canvas do Gráfico
     chartCanvas: document.getElementById('resourceChart')
 };
 
-let chartInstance = null;
+let chartInstance = null; // Guardará o gráfico futuro
 
 // =========================================================
-// 2. INICIALIZAÇÃO
+// 2. CICLO DE VIDA
 // =========================================================
+
+// Função principal que roda ao abrir a página
 async function init() {
-    setupEventListeners();
+    console.log("Sistema iniciando...");
+    setupEvents();
     await checkSession();
 }
 
-function setupEventListeners() {
+// Configura cliques e teclas
+function setupEvents() {
+    // Botão Sair
     UI.logout.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
         window.location.href = "index.html";
     });
 
-    UI.search.addEventListener('input', (e) => handleSearchInput(e.target.value));
-    UI.search.addEventListener('focus', (e) => handleSearchInput(e.target.value));
-
+    // Barra de Pesquisa (Apenas logs por enquanto)
     UI.search.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && UI.search.value.length > 0) {
+        if (e.key === 'Enter') {
             const termo = UI.search.value;
-            UI.suggestions.style.display = 'none';
-            fetchPlayerData(termo);
-        }
-    });
-    
-    document.addEventListener('click', (e) => {
-        if (!UI.search.contains(e.target) && !UI.suggestions.contains(e.target)) {
-            UI.suggestions.style.display = 'none';
+            console.log(`Usuário apertou Enter buscando: ${termo}`);
+            // AQUI ENTRARÁ A FUNÇÃO DE BUSCA FUTURAMENTE
+            alert(`Você digitou: ${termo}. (Busca ainda não implementada)`);
         }
     });
 }
 
+// Verifica Login e Tira o Loading
 async function checkSession() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = "index.html"; return; }
+    
+    if (!session) {
+        // Se não tiver logado, chuta pra fora
+        window.location.href = "index.html";
+        return;
+    }
 
+    // Se logou, atualiza a UI básica
     const user = session.user;
-    UI.userDisplay.innerText = user.user_metadata.full_name || "Invocador";
-    UI.welcome.innerText = `Bem-vindo, ${user.user_metadata.lol_nick || "Jogador"}`;
-    UI.loading.style.display = 'none';
-
-    // Carrega perfil inicial
-    fetchPlayerData("zekas#2002");
+    const nick = user.user_metadata.lol_nick || "Jogador";
+    
+    UI.userDisplay.innerText = user.user_metadata.full_name || "Conectado";
+    UI.welcome.innerText = `Olá, ${nick}.`;
+    
+    // Some com a tela de carregamento
+    setTimeout(() => {
+        UI.loading.style.display = 'none';
+    }, 500);
 }
 
-function handleSearchInput(termo) {
-    termo = termo.toLowerCase();
-    const filtrados = termo === "" 
-        ? SUGGESTED_NICKS 
-        : SUGGESTED_NICKS.filter(n => n.toLowerCase().includes(termo));
-
-    UI.suggestions.innerHTML = '';
-    if (filtrados.length > 0) {
-        UI.suggestions.style.display = 'block';
-        filtrados.forEach(nick => {
-            const div = document.createElement('div');
-            div.className = 'suggestion-item';
-            div.innerText = nick; 
-            div.addEventListener('click', () => {
-                UI.search.value = nick;
-                UI.suggestions.style.display = 'none';
-                fetchPlayerData(nick);
-            });
-            UI.suggestions.appendChild(div);
-        });
-    } else {
-        UI.suggestions.style.display = 'none';
-    }
-}
-
-// =========================================================
-// 3. BUSCA E TRATAMENTO DE DADOS
-// =========================================================
-
-async function fetchPlayerData(nickPesquisado) {
-    UI.welcome.innerText = `Buscando: ${nickPesquisado}...`;
-    UI.welcome.style.color = "#c8aa6e";
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('partidas_br')
-            .select('*')
-            .ilike('Player Name', `%${nickPesquisado}%`);
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-            UI.welcome.innerText = `Nenhum dado encontrado.`;
-            UI.welcome.style.color = "#ff4d4d";
-            return;
-        }
-
-        const dadosFiltrados = data.filter(linha => 
-            linha['Player Name'].toLowerCase().includes(nickPesquisado.toLowerCase())
-        );
-
-        if (dadosFiltrados.length === 0) {
-            alert("Nenhum jogador corresponde exatamente a essa busca.");
-            return;
-        }
-
-        const partidasUnicas = [];
-        const idsJaVistos = new Set();
-
-        dadosFiltrados.forEach(partida => {
-            const id = partida['Match ID'];
-            if (!idsJaVistos.has(id)) {
-                idsJaVistos.add(id);
-                partidasUnicas.push(partida);
-            }
-        });
-
-        console.log(`Dados limpos: ${partidasUnicas.length} partidas.`);
-
-        const nomeReal = partidasUnicas[0]['Player Name'];
-        updateDashboard(nomeReal, partidasUnicas);
-
-    } catch (err) {
-        console.error("Erro:", err);
-        UI.welcome.innerText = "Erro ao carregar dados.";
-    }
-}
-
-// =========================================================
-// 4. ATUALIZAÇÃO DA TELA & GRÁFICO (COM FIX DO CRASH)
-// =========================================================
-
-function updateDashboard(nick, matches) {
-    const total = matches.length;
-    const wins = matches.filter(m => m['Win Rate %'] == 1).length;
-    
-    let kdaSum = 0, kdaCount = 0;
-    matches.forEach(m => {
-        const k = parseFloat(m['KDA']);
-        if (!isNaN(k)) { kdaSum += k; kdaCount++; }
-    });
-    
-    const contagem = {};
-    matches.forEach(m => {
-        const c = m['Champion'];
-        contagem[c] = (contagem[c] || 0) + 1;
-    });
-    const mainChamp = Object.keys(contagem).reduce((a, b) => contagem[a] > contagem[b] ? a : b);
-
-    UI.welcome.style.color = "#ffffff";
-    UI.welcome.innerText = `Análise: ${nick}`;
-    UI.winrate.innerText = ((wins / total) * 100).toFixed(0) + "%";
-    UI.kda.innerText = kdaCount > 0 ? (kdaSum / kdaCount).toFixed(2) : "-";
-    
-    UI.champName.innerText = mainChamp;
-    UI.champStats.innerText = `${contagem[mainChamp]} Partidas`;
-    
-    const cleanName = mainChamp.replace(/[^a-zA-Z0-9]/g, '');
-    // Atualizado para versão mais recente
-    UI.champImg.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${cleanName}.png`;
-    // Fallback para imagem do card também
-    UI.champImg.onerror = function() {
-        this.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/profileicon/29.png`;
-    };
-
-    renderChart(matches);
-}
-
-function renderChart(matches) {
-    const chartData = matches.map(m => {
-        const dmg = parseFloat(m['Damage/Min']) || 0;
-        const gold = parseFloat(m['Gold/Min']) || 1;
-        const eff = (dmg / gold) * 100; 
-        
-        return {
-            x: gold, 
-            y: dmg, 
-            r: (eff / 6) < 5 ? 5 : (eff / 6),
-            champ: m['Champion'],
-            win: m['Win Rate %'] == 1,
-            effText: eff.toFixed(0) + "%"
-        };
-    });
-
-    const wins = chartData.filter(d => d.win);
-    const losses = chartData.filter(d => !d.win);
-
-    // FUNÇÃO DE IMAGEM SEGURA
-    const getImg = (n) => {
-        const i = new Image();
-        const cleanName = n.replace(/[^a-zA-Z0-9]/g, '');
-        // Usa versão recente
-        i.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${cleanName}.png`;
-        
-        // Se a imagem falhar (404), coloca um ícone de Poro para não quebrar o gráfico
-        i.onerror = () => {
-            console.warn(`Imagem não encontrada para: ${n}. Usando fallback.`);
-            i.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/profileicon/29.png`;
-        };
-        return i;
-    };
-
-    wins.forEach(d => d.image = getImg(d.champ));
-    losses.forEach(d => d.image = getImg(d.champ));
-
-    const ctx = UI.chartCanvas.getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-
-    const imgPlugin = {
-        id: 'customImage',
-        afterDatasetDraw(chart, args) {
-            const { ctx } = chart;
-            const meta = args.meta;
-            meta.data.forEach((el, index) => {
-                const d = chart.data.datasets[meta.index].data[index];
-                
-                // CORREÇÃO CRÍTICA DO ERRO:
-                // Só desenha se a imagem existe, carregou E tem tamanho (não está quebrada)
-                if (!d.image || !d.image.complete || d.image.naturalWidth === 0) return;
-
-                const { x, y } = el.getProps(['x', 'y'], true);
-                const r = el.options.radius;
-
-                try {
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(x, y, r, 0, Math.PI * 2);
-                    ctx.closePath();
-                    ctx.clip();
-                    ctx.drawImage(d.image, x-r, y-r, r*2, r*2);
-                    
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = d.win ? '#5383e8' : '#e84057';
-                    ctx.stroke();
-                    ctx.restore();
-                } catch (e) {
-                    console.error("Erro ao desenhar bolha:", e);
-                }
-            });
-        }
-    };
-
-    chartInstance = new Chart(ctx, {
-        type: 'bubble',
-        plugins: [imgPlugin],
-        data: {
-            datasets: [
-                { label: 'Vitória', data: wins, backgroundColor: 'rgba(83, 131, 232, 0.1)', borderColor: 'transparent' },
-                { label: 'Derrota', data: losses, backgroundColor: 'rgba(232, 64, 87, 0.1)', borderColor: 'transparent' }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#13161d',
-                    bodyColor: '#fff',
-                    titleColor: '#c8aa6e',
-                    callbacks: {
-                        label: (c) => {
-                            const d = c.raw;
-                            return [` ${d.champ}`, ` Eficiência: ${d.effText}`, ` Dano: ${d.y.toFixed(0)}`, ` Gold: ${d.x.toFixed(0)}`];
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { title: { display: true, text: 'Gold/Min' }, grid: { color: '#ffffff10' } },
-                y: { title: { display: true, text: 'Dano/Min' }, grid: { color: '#ffffff10' } }
-            }
-        }
-    });
-    
-    // Força atualização
-    setTimeout(() => chartInstance.update(), 800);
-}
-
-// Inicia
+// Inicia o App
 init();
