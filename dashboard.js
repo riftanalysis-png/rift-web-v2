@@ -1,27 +1,25 @@
 // =========================================================
-// SETUP BÁSICO & CONFIGURAÇÃO
+// 1. CONFIGURAÇÃO E VARIÁVEIS GLOBAIS
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
-const SUPABASE_ANON_KEY = "SUA_CHAVE_AQUI";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
-const supabaseClient = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const UI = {
     search: document.getElementById('playerSearch'),
     logout: document.getElementById('logoutBtn')
 };
 
+// Variáveis para guardar os gráficos e poder destruí-los ao recarregar
 let chartBubble = null;
 let chartBar = null;
 
 // =========================================================
-// INIT
+// 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Dashboard iniciado");
+    console.log("🚀 Dashboard Final Iniciado");
 
     if (UI.logout) {
         UI.logout.addEventListener('click', async () => {
@@ -40,13 +38,14 @@ function init() {
 }
 
 // =========================================================
-// BUSCA DE DADOS
+// 3. BUSCA E TRATAMENTO DE DADOS
 // =========================================================
 async function buscarDados(nick) {
     console.clear();
-    console.log(`🔎 Buscando jogador: ${nick}`);
+    console.log(`🔎 Buscando dados para: "${nick}"...`);
 
     try {
+        // Ordena por data para pegar a evolução cronológica
         const { data, error } = await supabaseClient
             .from('partidas_br')
             .select('*')
@@ -55,205 +54,222 @@ async function buscarDados(nick) {
 
         if (error) throw error;
         if (!data || data.length === 0) {
-            alert("Jogador não encontrado.");
+            alert("Jogador não encontrado ou sem partidas processadas.");
             return;
         }
 
-        const dadosUnicos = Array.from(
-            new Map(
-                data.map(item => [item['Match ID'], item])
-            ).values()
+        // Filtro exato de nome
+        const dadosDoJogador = data.filter(linha => 
+            linha['Player Name'].toLowerCase().includes(nick.toLowerCase())
         );
 
-        renderizarGraficos(dadosUnicos.slice(-20));
+        // --- REMOÇÃO DE DUPLICATAS ---
+        // Usa o Match ID como chave única para garantir que não haja repetições
+        const dadosUnicos = Array.from(
+            new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
+        );
+
+        console.log(`✅ ${dadosUnicos.length} partidas únicas carregadas.`);
+
+        // Renderiza os gráficos
+        renderizarGraficos(dadosUnicos);
 
     } catch (err) {
-        console.error("Erro ao buscar dados:", err);
+        console.error("Erro na busca:", err);
     }
 }
 
 // =========================================================
-// RENDERIZAÇÃO DOS GRÁFICOS
+// 4. RENDERIZAÇÃO DOS GRÁFICOS
 // =========================================================
 async function renderizarGraficos(dados) {
+    // Pega as últimas 20 partidas para não poluir demais a tela
+    const dadosRecentes = dados.slice(-20);
 
-    const imagensMap = await carregarImagensCampeoes(dados);
+    // Carrega as imagens dos campeões ANTES de desenhar
+    const imagensMap = await carregarImagensCampeoes(dadosRecentes);
 
-    // =====================================================
-    // GRÁFICO 1 — CARRY VOLUME (BUBBLE)
-    // =====================================================
+    // --- GRÁFICO 1: BUBBLE CHART (PERSONALIZADO) ---
     const ctx1 = document.getElementById('graficoPrincipal');
-    if (!ctx1) return;
+    
+    if (ctx1) {
+        if (chartBubble) chartBubble.destroy();
 
-    if (chartBubble) chartBubble.destroy();
+        // Mapeamento dos dados para o formato do Chart.js
+        const bubbleData = dadosRecentes.map(d => {
+            // Cálculo da duração (com proteção para dados legados)
+            let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
+            
+            // GPM Exato
+            const gpm = d['Gold Earned'] / duracao;
 
-    const bubbleData = dados.map(d => {
+            // --- AJUSTE DE ESCALA (TAMANHO DA BOLHA) ---
+            // ESCALA_BASE define o tamanho em pixels (raio) se o jogador tiver 450 de GPM.
+            // 45px de raio = 90px de diâmetro (Bem visível)
+            const ESCALA_BASE = 45; 
+            const radiusPixel = (gpm / 450) * ESCALA_BASE;
 
-        const gpm = d['Gold/Min'] 
-            ? d['Gold/Min']
-            : d['Gold Earned'] / ((d['Game Duration'] || 1800) / 60);
+            return {
+                x: d['Damage/Min'],
+                y: d['Gold/Min'],
+                r: radiusPixel,     // Raio calculado
+                champion: d['Champion'],
+                win: d['Win Rate %'] === 1,
+                gpm: gpm.toFixed(0),
+                rawDamage: d['Damage/Min'].toFixed(0)
+            };
+        });
 
-        const dpm = d['Damage/Min'];
+        // --- PLUGIN CUSTOMIZADO: DESENHA IMAGEM REDONDA ---
+        const imageProfilePlugin = {
+            id: 'customAvatar',
+            afterDatasetDraw(chart, args, options) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                
+                meta.data.forEach((element, index) => {
+                    const dataPoint = bubbleData[index];
+                    const img = imagensMap[dataPoint.champion];
+                    
+                    if (!img) return;
 
-        // NORMALIZAÇÃO DO RAIO (VISUALMENTE CORRETA)
-        const minGPM = 300;
-        const maxGPM = 600;
+                    const { x, y } = element.tooltipPosition();
+                    const radius = element.options.radius; // Pega o raio que calculamos acima
 
-        const radius = Math.min(
-            24,
-            Math.max(
-                8,
-                ((gpm - minGPM) / (maxGPM - minGPM)) * 16 + 8
-            )
-        );
+                    ctx.save();
+                    
+                    // 1. Cria o caminho do Círculo
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.closePath();
+                    
+                    // 2. Recorta (Clip) tudo que estiver fora
+                    ctx.clip();
+                    
+                    // 3. Desenha a imagem esticada para preencher o círculo
+                    ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+                    
+                    // 4. Restaura o contexto (sai do modo "recorte")
+                    ctx.restore();
 
-        return {
-            x: dpm,
-            y: gpm,
-            r: radius,
-            champion: d['Champion'],
-            win: d['Win Rate %'] === 1,
-            gpm: gpm.toFixed(0),
-            dpm: dpm.toFixed(0)
+                    // 5. Desenha a Borda Colorida por cima
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.lineWidth = 3; 
+                    ctx.strokeStyle = dataPoint.win ? '#00BFFF' : '#FF4500'; // Azul ou Vermelho
+                    ctx.stroke();
+                });
+            }
         };
-    });
 
-    // =====================================================
-    // PLUGIN DE AVATAR REDONDO
-    // =====================================================
-    const imageProfilePlugin = {
-        id: 'customAvatar',
-        afterDatasetDraw(chart) {
-            const { ctx } = chart;
-            const meta = chart.getDatasetMeta(0);
-
-            meta.data.forEach((element, index) => {
-                const d = bubbleData[index];
-                const img = imagensMap[d.champion];
-                if (!img || img === 'circle') return;
-
-                const { x, y } = element.tooltipPosition();
-                const radius = element.options.radius;
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.closePath();
-                ctx.clip();
-                ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
-                ctx.restore();
-
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = d.win ? '#00BFFF' : '#FF4500';
-                ctx.stroke();
-            });
-        }
-    };
-
-    chartBubble = new Chart(ctx1, {
-        type: 'bubble',
-        data: {
-            datasets: [{
-                label: 'Carry Volume',
-                data: bubbleData,
-                backgroundColor: 'transparent',
-                borderColor: 'transparent'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label(ctx) {
-                            const d = ctx.raw;
-                            return [
-                                `${d.champion} (${d.win ? 'Vitória' : 'Derrota'})`,
-                                `DPM: ${d.dpm}`,
-                                `GPM: ${d.gpm}`
-                            ];
+        chartBubble = new Chart(ctx1, {
+            type: 'bubble',
+            data: {
+                datasets: [{
+                    label: 'Performance',
+                    data: bubbleData,
+                    backgroundColor: 'transparent', // Transparente para ver a imagem
+                    borderColor: 'transparent',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const d = context.raw;
+                                const status = d.win ? "Vitória" : "Derrota";
+                                return `${d.champion} (${status}) | Dano: ${d.rawDamage} | GPM: ${d.gpm}`;
+                            }
                         }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Dano por Minuto (DPM)', color: '#aaa' },
+                        grid: { color: '#333' },
+                        ticks: { color: '#eee' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Ouro por Minuto (GPM)', color: '#aaa' },
+                        grid: { color: '#333' },
+                        ticks: { color: '#eee' }
                     }
                 }
             },
-            scales: {
-                x: {
-                    title: { display: true, text: 'Damage / Min', color: '#aaa' },
-                    grid: { color: '#333' },
-                    ticks: { color: '#eee' }
-                },
-                y: {
-                    title: { display: true, text: 'Gold / Min', color: '#aaa' },
-                    grid: { color: '#333' },
-                    ticks: { color: '#eee' }
+            // Registra o plugin nesta instância do gráfico
+            plugins: [imageProfilePlugin]
+        });
+    }
+
+    // --- GRÁFICO 2: BARRAS DE FARM (CS/Min) ---
+    const ctx2 = document.getElementById('graficoFarm');
+    if (ctx2) {
+        if (chartBar) chartBar.destroy();
+        
+        const labels = dadosRecentes.map(d => d.Champion);
+        const csData = dadosRecentes.map(d => d['Farm/Min']);
+
+        chartBar = new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'CS por Minuto',
+                    data: csData,
+                    backgroundColor: '#4BC0C0',
+                    borderColor: '#36A2EB',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#333' } },
+                    x: { display: false } // Oculta labels do eixo X para ficar mais limpo
                 }
             }
-        },
-        plugins: [imageProfilePlugin]
-    });
-
-    // =====================================================
-    // GRÁFICO 2 — FARM
-    // =====================================================
-    const ctx2 = document.getElementById('graficoFarm');
-    if (!ctx2) return;
-
-    if (chartBar) chartBar.destroy();
-
-    chartBar = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-            labels: dados.map(d => d.Champion),
-            datasets: [{
-                label: 'CS / Min',
-                data: dados.map(d => d['Farm/Min']),
-                backgroundColor: '#4BC0C0'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#333' } },
-                x: { display: false }
-            }
-        }
-    });
+        });
+    }
 }
 
 // =========================================================
-// CARREGAMENTO DE IMAGENS
+// 5. UTILITÁRIOS (CARREGAMENTO DE IMAGENS)
 // =========================================================
 async function carregarImagensCampeoes(dados) {
     const map = {};
-    const promises = dados.map(d => new Promise(resolve => {
+    const promessas = dados.map(d => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            
+            // Tratamento de nomes (Exceções da API da Riot)
+            let champName = d.Champion;
+            if (champName === "FiddleSticks") champName = "Fiddlesticks"; 
+            if (champName === "Renata") champName = "RenataGlasc"; 
 
-        const img = new Image();
-        let champ = d.Champion;
+            // URL DataDragon
+            img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champName}.png`;
+            
+            img.onload = () => {
+                map[d.Champion] = img;
+                resolve();
+            };
+            img.onerror = () => {
+                // Se der erro, não quebra o gráfico, apenas não desenha a imagem
+                console.warn(`Imagem não encontrada para: ${champName}`);
+                map[d.Champion] = null; 
+                resolve();
+            };
+        });
+    });
 
-        if (champ === "FiddleSticks") champ = "Fiddlesticks";
-        if (champ === "Renata") champ = "RenataGlasc";
-
-        img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champ}.png`;
-        img.onload = () => {
-            map[d.Champion] = img;
-            resolve();
-        };
-        img.onerror = () => {
-            map[d.Champion] = 'circle';
-            resolve();
-        };
-    }));
-
-    await Promise.all(promises);
+    await Promise.all(promessas);
     return map;
 }
 
-// =========================================================
-// START
-// =========================================================
+// Inicializa o script
 init();
