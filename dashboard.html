@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoL Analytics - Dashboard</title>
+    <title>Nexus Analytics - Dashboard</title>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -20,9 +20,10 @@
             --accent-blue: #00BFFF;    /* Vitória */
             --accent-red: #FF4500;     /* Derrota */
             --accent-gold: #fbbf24;    /* Ouro */
+            --accent-cyan: #22d3ee;    /* XP/Probabilidade */
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
 
         body {
             background-color: var(--bg-color);
@@ -32,7 +33,6 @@
             min-height: 100vh;
         }
 
-        /* HEADER */
         header {
             background-color: var(--card-bg);
             border-bottom: 1px solid var(--border-color);
@@ -42,75 +42,33 @@
             align-items: center;
         }
 
-        .brand {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .brand { font-size: 1.25rem; font-weight: 700; color: white; display: flex; gap: 10px; }
         .brand span { color: var(--accent-gold); }
 
-        .search-container {
-            position: relative;
-        }
-
         input[type="text"] {
-            background: #000;
-            border: 1px solid var(--border-color);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 6px;
-            width: 350px;
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        input[type="text"]:focus {
-            border-color: var(--accent-blue);
-        }
-
-        button.logout {
-            background: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
+            background: #000; border: 1px solid var(--border-color); color: white;
+            padding: 10px 15px; border-radius: 6px; width: 350px; outline: none;
             transition: 0.2s;
         }
+        input[type="text"]:focus { border-color: var(--accent-blue); }
 
-        button.logout:hover {
-            border-color: var(--accent-red);
-            color: var(--accent-red);
+        button.logout {
+            background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary);
+            padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: 0.2s;
         }
+        button.logout:hover { border-color: var(--accent-red); color: var(--accent-red); }
 
-        /* MAIN LAYOUT */
-        main {
-            padding: 2rem;
-            max-width: 1600px;
-            margin: 0 auto;
-            width: 100%;
-        }
+        main { padding: 2rem; max-width: 1600px; margin: 0 auto; width: 100%; }
 
-        /* GRID DOS GRÁFICOS */
+        /* GRID LAYOUT */
         .grid-container {
             display: grid;
-            grid-template-columns: 1fr; /* Mobile First */
+            grid-template-columns: 2fr 1fr; /* 2 partes para o Bubble, 1 para o Farm */
             gap: 20px;
-            margin-top: 20px;
+            margin-bottom: 20px;
         }
 
-        /* Desktop: Gráfico Principal ocupa muito espaço, o de Farm fica embaixo ou ao lado */
-        @media (min-width: 1024px) {
-            .grid-container {
-                grid-template-columns: 3fr 1fr; /* 3 partes para o Scatter, 1 parte para o Farm */
-            }
-        }
+        .full-width { grid-column: 1 / -1; } /* Ocupa a linha inteira */
 
         .card {
             background-color: var(--card-bg);
@@ -121,63 +79,29 @@
             flex-direction: column;
         }
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+        .card-header { margin-bottom: 20px; }
+        .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+        .card-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
 
-        .card-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
+        .chart-wrapper-large { position: relative; height: 450px; width: 100%; }
+        .chart-wrapper-small { position: relative; height: 300px; width: 100%; }
 
-        .card-subtitle {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        /* CONTAINER DOS CANVAS */
-        .chart-wrapper-large {
-            position: relative;
-            height: 500px; /* Altura generosa para as bolhas */
-            width: 100%;
-        }
-
-        .chart-wrapper-small {
-            position: relative;
-            height: 500px; /* Altura igual para alinhar no grid */
-            width: 100%;
-        }
-
-        /* LEGENDAS CUSTOMIZADAS */
-        .legend-guide {
-            display: flex;
-            gap: 15px;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 5px;
-        }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
+        /* Legenda customizada para o Bubble */
+        .legend-guide { display: flex; gap: 15px; font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .dot.blue { background: var(--accent-blue); }
         .dot.red { background: var(--accent-red); }
 
+        @media (max-width: 1024px) {
+            .grid-container { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="brand">
-            <span>⚡</span> DATA RIFT
-        </div>
-        
-        <div class="search-container">
-            <input type="text" id="playerSearch" placeholder="Pesquisar Invocador (Ex: Zekas#2002)...">
-        </div>
-
+        <div class="brand"><span>⚡</span> NEXUS ANALYTICS</div>
+        <div><input type="text" id="playerSearch" placeholder="Pesquisar Invocador (Ex: Zekas#2002)..."></div>
         <button id="logoutBtn" class="logout">Sair</button>
     </header>
 
@@ -186,17 +110,13 @@
             
             <div class="card">
                 <div class="card-header">
-                    <div>
-                        <div class="card-title">Eficiência de Carry</div>
-                        <div class="card-subtitle">Eixo X: Dano | Eixo Y: Ouro | Tamanho: Eficiência de Gold (GPM)</div>
-                        
-                        <div class="legend-guide">
-                            <div class="legend-item"><span class="dot blue"></span> Vitória</div>
-                            <div class="legend-item"><span class="dot red"></span> Derrota</div>
-                        </div>
+                    <div class="card-title">Eficiência de Carry (Recente)</div>
+                    <div class="card-subtitle">Eixo X: Dano | Eixo Y: Ouro | Tamanho: Eficiência (GPM)</div>
+                    <div class="legend-guide">
+                        <div class="legend-item"><span class="dot blue"></span> Vitória</div>
+                        <div class="legend-item"><span class="dot red"></span> Derrota</div>
                     </div>
                 </div>
-                
                 <div class="chart-wrapper-large">
                     <canvas id="graficoPrincipal"></canvas>
                 </div>
@@ -204,14 +124,21 @@
 
             <div class="card">
                 <div class="card-header">
-                    <div>
-                        <div class="card-title">Histórico de Farm</div>
-                        <div class="card-subtitle">Minions por Minuto (CS/Min)</div>
-                    </div>
+                    <div class="card-title">Consistência de Farm</div>
+                    <div class="card-subtitle">Minions por Minuto (CS/Min)</div>
                 </div>
-                
-                <div class="chart-wrapper-small">
+                <div class="chart-wrapper-large">
                     <canvas id="graficoFarm"></canvas>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <div class="card-header">
+                    <div class="card-title">Chance de Vitória (Snowball)</div>
+                    <div class="card-subtitle">Probabilidade de ganhar baseado na vantagem de XP aos 12 minutos (Todo o Histórico)</div>
+                </div>
+                <div class="chart-wrapper-small">
+                    <canvas id="graficoXPWinrate"></canvas>
                 </div>
             </div>
 
