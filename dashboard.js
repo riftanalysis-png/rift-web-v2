@@ -4,9 +4,11 @@
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 
+// URL da Riot mais recente para garantir que Smolder/Aurora funcionem
+const DDRAGON_VERSION = "14.23.1"; 
+
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Lista de teste (para facilitar sua vida)
 const SUGGESTED_NICKS = [
     "zekas#2002",
     "han dao#EGC",
@@ -22,7 +24,6 @@ const UI = {
     search: document.getElementById('playerSearch'),
     suggestions: document.getElementById('suggestionsBox'),
     logout: document.getElementById('logoutBtn'),
-    // Cards e Gráfico
     winrate: document.getElementById('valWinrate'),
     kda: document.getElementById('valKDA'),
     champName: document.getElementById('txtMainChamp'),
@@ -47,19 +48,17 @@ function setupEventListeners() {
         window.location.href = "index.html";
     });
 
-    // Busca ao Digitar ou Clicar
     UI.search.addEventListener('input', (e) => handleSearchInput(e.target.value));
     UI.search.addEventListener('focus', (e) => handleSearchInput(e.target.value));
 
-    // Busca ao apertar ENTER
     UI.search.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && UI.search.value.length > 0) {
-            fetchPlayerData(UI.search.value);
+            const termo = UI.search.value;
             UI.suggestions.style.display = 'none';
+            fetchPlayerData(termo);
         }
     });
     
-    // Fechar sugestões
     document.addEventListener('click', (e) => {
         if (!UI.search.contains(e.target) && !UI.suggestions.contains(e.target)) {
             UI.suggestions.style.display = 'none';
@@ -76,7 +75,7 @@ async function checkSession() {
     UI.welcome.innerText = `Bem-vindo, ${user.user_metadata.lol_nick || "Jogador"}`;
     UI.loading.style.display = 'none';
 
-    // Carrega o zekas como exemplo inicial
+    // Carrega perfil inicial
     fetchPlayerData("zekas#2002");
 }
 
@@ -92,11 +91,11 @@ function handleSearchInput(termo) {
         filtrados.forEach(nick => {
             const div = document.createElement('div');
             div.className = 'suggestion-item';
-            div.innerText = nick; // Mostra o nick simples
+            div.innerText = nick; 
             div.addEventListener('click', () => {
                 UI.search.value = nick;
-                fetchPlayerData(nick);
                 UI.suggestions.style.display = 'none';
+                fetchPlayerData(nick);
             });
             UI.suggestions.appendChild(div);
         });
@@ -106,7 +105,7 @@ function handleSearchInput(termo) {
 }
 
 // =========================================================
-// 3. A LÓGICA "EXCEL" (=FILTER)
+// 3. BUSCA E TRATAMENTO DE DADOS
 // =========================================================
 
 async function fetchPlayerData(nickPesquisado) {
@@ -114,7 +113,6 @@ async function fetchPlayerData(nickPesquisado) {
     UI.welcome.style.color = "#c8aa6e";
 
     try {
-        // 1. Busca TUDO que parece com o nick (ILOIKE é flexível)
         const { data, error } = await supabaseClient
             .from('partidas_br')
             .select('*')
@@ -128,25 +126,20 @@ async function fetchPlayerData(nickPesquisado) {
             return;
         }
 
-        // 2. APLICANDO O FILTRO EXATO (=FILTER)
-        // Aqui garantimos que só pegamos as linhas onde o nome é IGUAL ao que queremos.
-        // Convertemos para minúsculo para garantir que "Zekas" e "zekas" sejam iguais.
-        const dadosDoJogador = data.filter(linha => 
+        const dadosFiltrados = data.filter(linha => 
             linha['Player Name'].toLowerCase().includes(nickPesquisado.toLowerCase())
         );
 
-        if (dadosDoJogador.length === 0) {
-            alert("Encontramos nomes parecidos, mas não esse exato.");
+        if (dadosFiltrados.length === 0) {
+            alert("Nenhum jogador corresponde exatamente a essa busca.");
             return;
         }
 
-        // 3. REMOVENDO DUPLICATAS (=UNIQUE)
         const partidasUnicas = [];
         const idsJaVistos = new Set();
 
-        dadosDoJogador.forEach(partida => {
+        dadosFiltrados.forEach(partida => {
             const id = partida['Match ID'];
-            // Se eu ainda não vi esse ID, adiciono na lista final
             if (!idsJaVistos.has(id)) {
                 idsJaVistos.add(id);
                 partidasUnicas.push(partida);
@@ -155,8 +148,6 @@ async function fetchPlayerData(nickPesquisado) {
 
         console.log(`Dados limpos: ${partidasUnicas.length} partidas.`);
 
-        // 4. ATUALIZA A TELA
-        // Usamos o nome real da primeira partida encontrada para ficar bonito (Ex: Zekas#2002)
         const nomeReal = partidasUnicas[0]['Player Name'];
         updateDashboard(nomeReal, partidasUnicas);
 
@@ -167,22 +158,19 @@ async function fetchPlayerData(nickPesquisado) {
 }
 
 // =========================================================
-// 4. ATUALIZAÇÃO DA TELA
+// 4. ATUALIZAÇÃO DA TELA & GRÁFICO (COM FIX DO CRASH)
 // =========================================================
 
 function updateDashboard(nick, matches) {
-    // Calcula Estatísticas Básicas
     const total = matches.length;
     const wins = matches.filter(m => m['Win Rate %'] == 1).length;
     
-    // KDA Médio
     let kdaSum = 0, kdaCount = 0;
     matches.forEach(m => {
         const k = parseFloat(m['KDA']);
         if (!isNaN(k)) { kdaSum += k; kdaCount++; }
     });
     
-    // Main Champ (Campeão mais repetido na lista)
     const contagem = {};
     matches.forEach(m => {
         const c = m['Champion'];
@@ -190,7 +178,6 @@ function updateDashboard(nick, matches) {
     });
     const mainChamp = Object.keys(contagem).reduce((a, b) => contagem[a] > contagem[b] ? a : b);
 
-    // Preenche os Textos
     UI.welcome.style.color = "#ffffff";
     UI.welcome.innerText = `Análise: ${nick}`;
     UI.winrate.innerText = ((wins / total) * 100).toFixed(0) + "%";
@@ -200,46 +187,56 @@ function updateDashboard(nick, matches) {
     UI.champStats.innerText = `${contagem[mainChamp]} Partidas`;
     
     const cleanName = mainChamp.replace(/[^a-zA-Z0-9]/g, '');
-    UI.champImg.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${cleanName}.png`;
+    // Atualizado para versão mais recente
+    UI.champImg.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${cleanName}.png`;
+    // Fallback para imagem do card também
+    UI.champImg.onerror = function() {
+        this.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/profileicon/29.png`;
+    };
 
-    // Renderiza o Gráfico
     renderChart(matches);
 }
 
 function renderChart(matches) {
-    // Transforma dados para o gráfico
     const chartData = matches.map(m => {
         const dmg = parseFloat(m['Damage/Min']) || 0;
         const gold = parseFloat(m['Gold/Min']) || 1;
-        const eff = (dmg / gold) * 100; // Eficiência
+        const eff = (dmg / gold) * 100; 
         
         return {
             x: gold, 
             y: dmg, 
-            r: (eff / 6) < 5 ? 5 : (eff / 6), // Tamanho da bolha
+            r: (eff / 6) < 5 ? 5 : (eff / 6),
             champ: m['Champion'],
             win: m['Win Rate %'] == 1,
             effText: eff.toFixed(0) + "%"
         };
     });
 
-    // Separa Vitória/Derrota
     const wins = chartData.filter(d => d.win);
     const losses = chartData.filter(d => !d.win);
 
-    // Prepara imagens
+    // FUNÇÃO DE IMAGEM SEGURA
     const getImg = (n) => {
         const i = new Image();
-        i.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${n.replace(/[^a-zA-Z0-9]/g, '')}.png`;
+        const cleanName = n.replace(/[^a-zA-Z0-9]/g, '');
+        // Usa versão recente
+        i.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${cleanName}.png`;
+        
+        // Se a imagem falhar (404), coloca um ícone de Poro para não quebrar o gráfico
+        i.onerror = () => {
+            console.warn(`Imagem não encontrada para: ${n}. Usando fallback.`);
+            i.src = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/profileicon/29.png`;
+        };
         return i;
     };
+
     wins.forEach(d => d.image = getImg(d.champ));
     losses.forEach(d => d.image = getImg(d.champ));
 
     const ctx = UI.chartCanvas.getContext('2d');
     if (chartInstance) chartInstance.destroy();
 
-    // Plugin para desenhar a imagem na bolha
     const imgPlugin = {
         id: 'customImage',
         afterDatasetDraw(chart, args) {
@@ -247,22 +244,29 @@ function renderChart(matches) {
             const meta = args.meta;
             meta.data.forEach((el, index) => {
                 const d = chart.data.datasets[meta.index].data[index];
-                if (!d.image || !d.image.complete) return;
+                
+                // CORREÇÃO CRÍTICA DO ERRO:
+                // Só desenha se a imagem existe, carregou E tem tamanho (não está quebrada)
+                if (!d.image || !d.image.complete || d.image.naturalWidth === 0) return;
 
                 const { x, y } = el.getProps(['x', 'y'], true);
                 const r = el.options.radius;
 
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
-                ctx.closePath();
-                ctx.clip();
-                ctx.drawImage(d.image, x-r, y-r, r*2, r*2);
-                
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = d.win ? '#5383e8' : '#e84057';
-                ctx.stroke();
-                ctx.restore();
+                try {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.clip();
+                    ctx.drawImage(d.image, x-r, y-r, r*2, r*2);
+                    
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = d.win ? '#5383e8' : '#e84057';
+                    ctx.stroke();
+                    ctx.restore();
+                } catch (e) {
+                    console.error("Erro ao desenhar bolha:", e);
+                }
             });
         }
     };
@@ -300,6 +304,7 @@ function renderChart(matches) {
         }
     });
     
+    // Força atualização
     setTimeout(() => chartInstance.update(), 800);
 }
 
