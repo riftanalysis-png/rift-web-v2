@@ -1,6 +1,6 @@
 /**
- * LEAGUE OF LEGENDS DASHBOARD SCRIPT
- * Versão Final: Refatorada + Lógica de Filtro Estrito (Anti-Fantasmas)
+ * LEAGUE OF LEGENDS DASHBOARD - VERSÃO ROBUSTA (FINAL)
+ * Correção: Busca flexível (ilike) + Filtro Rígido (JS)
  */
 
 // ==========================================
@@ -17,8 +17,8 @@ const CONFIG = {
     ]
 };
 
-// Seletores DOM
-const UI_ELEMENTS = {
+// Elementos da Tela
+const UI = {
     loading: document.getElementById('loadingScreen'),
     welcome: document.getElementById('welcomeMsg'),
     userNick: document.getElementById('userNickDisplay'),
@@ -32,190 +32,214 @@ const UI_ELEMENTS = {
         mainChampImg: document.querySelector('.champ-badge img'),
         mainChampCount: document.querySelector('.card:nth-child(3) p'),
     },
-    chartCanvas: document.getElementById('resourceChart').getContext('2d')
+    chartCtx: document.getElementById('resourceChart').getContext('2d')
 };
 
 const supabaseClient = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.KEY);
 let chartInstance = null;
 
 // ==========================================
-// 2. SERVIÇOS (BANCO DE DADOS)
+// 2. SERVIÇO DE DADOS (DATA SERVICE)
 // ==========================================
-const PlayerService = {
-    async fetchHistory(nick) {
+const DataService = {
+    async fetchPlayerHistory(inputNick) {
+        console.log(`[DataService] Iniciando busca para: "${inputNick}"`);
+        
         try {
-            // Lógica "Excel": Se tem #, usamos IGUAL (=). Se não, usamos CONTÉM (like).
-            const isExactMatch = nick.includes('#');
-            
-            let query = supabaseClient
+            // 1. Busca "Grosseira" no Banco (Traz tudo que parece com o nick)
+            // Usamos .ilike para ignorar maiúsculas/minúsculas (Zekas = zekas)
+            const { data, error } = await supabaseClient
                 .from('partidas_br')
-                .select('*');
-
-            if (isExactMatch) {
-                query = query.eq('Player Name', nick); // O tal do FILTER exato
-            } else {
-                query = query.ilike('Player Name', `%${nick}%`);
-            }
-
-            const { data, error } = await query;
+                .select('*')
+                .ilike('Player Name', `%${inputNick}%`);
 
             if (error) throw error;
-            if (!data) return [];
-
-            // Limpeza final via JavaScript (Garante que não passou sujeira)
-            const cleanedData = this.cleanData(data, nick);
             
-            console.log(`Dados brutos: ${data.length} | Dados limpos: ${cleanedData.length}`);
-            return cleanedData;
+            if (!data || data.length === 0) {
+                console.warn("[DataService] Nenhum dado retornado do Supabase.");
+                return [];
+            }
+
+            console.log(`[DataService] Supabase retornou ${data.length} linhas brutas.`);
+
+            // 2. Passa o "Pente Fino" para limpar sujeira
+            const cleanData = this.refineData(data, inputNick);
+            
+            console.log(`[DataService] Após limpeza: ${cleanData.length} partidas válidas.`);
+            return cleanData;
 
         } catch (err) {
-            console.error("Erro Supabase:", err);
+            console.error("[DataService] Erro Fatal:", err);
             throw err;
         }
     },
 
-    // Filtra duplicatas e linhas quebradas (fantasmas)
-    cleanData(matches, targetNick) {
+    // A Mágica do Filtro
+    refineData(rawData, targetNick) {
         const uniqueMatches = [];
-        const seenIds = new Set();
-        const safeTarget = targetNick.toLowerCase().trim().split('#')[0]; // Pega só o nome base
+        const seenSignatures = new Set();
+        
+        // Normaliza o nick buscado (remove espaços, tudo minusculo)
+        // Se o usuário digitou "Zekas#2002", o alvo é "zekas#2002"
+        // Se digitou "Zekas", o alvo é "zekas"
+        const normalizedTarget = targetNick.toLowerCase().trim();
+        const searchingTag = normalizedTarget.includes('#');
 
-        matches.forEach(match => {
-            // 1. Validação de Nome: Remove jogadores intrusos (ex: Persona nongrata)
-            const playerName = (match['Player Name'] || '').toLowerCase();
-            if (!playerName.includes(safeTarget)) return;
+        rawData.forEach(row => {
+            // A. Verificação de Integridade (Fantasma)
+            if (!row['Champion'] || !row['Damage/Min'] || !row['Player Name']) {
+                return; // Pula linha quebrada
+            }
 
-            // 2. Validação de Fantasma: Remove linhas sem Campeão ou Dano
-            if (!match['Champion'] || !match['Damage/Min']) return;
+            // B. Verificação de Nome (Intruso)
+            const rowPlayerName = row['Player Name'].toLowerCase();
+            
+            // Se buscou com TAG (#), o nome tem que conter a busca exata.
+            // Se buscou sem TAG, verificamos se o nome inclui a busca.
+            if (!rowPlayerName.includes(normalizedTarget)) {
+                // Proteção extra: Se buscou "Zekas" e veio "ZekasFake", aceitamos por enquanto,
+                // mas removemos "Persona Nongrata" que não tem nada a ver.
+                return; 
+            }
 
-            // 3. Validação de Duplicata: Evita partidas repetidas
-            const signature = match['Match ID'] || 
-                              `${match['Champion']}-${match['KDA']}-${match['Gold/Min']}`;
+            // C. Verificação de Duplicata (Repetido)
+            // Cria uma assinatura única para a partida
+            const signature = row['Match ID'] || `${row['Champion']}_${row['Game Start Time']}_${row['KDA']}`;
 
-            if (!seenIds.has(signature)) {
-                seenIds.add(signature);
-                uniqueMatches.push(match);
+            if (!seenSignatures.has(signature)) {
+                seenSignatures.add(signature);
+                uniqueMatches.push(row);
             }
         });
 
         return uniqueMatches;
     },
 
-    async checkSession() {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        return session;
+    async getSession() {
+        const { data } = await supabaseClient.auth.getSession();
+        return data.session;
     },
 
-    async logout() {
+    async signOut() {
         return await supabaseClient.auth.signOut();
     }
 };
 
 // ==========================================
-// 3. CALCULADORA (LÓGICA)
+// 3. LÓGICA DE CÁLCULO (CALCULATOR)
 // ==========================================
-const StatsCalculator = {
-    calculateWinrate(matches) {
+const Calculator = {
+    getWinrate(matches) {
         if (!matches.length) return "0%";
+        // Verifica 1 (Vitória) ou 100 (alguns formatos salvam 100%)
         const wins = matches.filter(m => m['Win Rate %'] == 1 || m['Win Rate %'] == 100).length;
         return ((wins / matches.length) * 100).toFixed(1) + "%";
     },
 
-    calculateAvgKDA(matches) {
+    getKDA(matches) {
         let total = 0, count = 0;
         matches.forEach(m => {
-            const val = parseFloat(m['KDA']);
-            if (!isNaN(val)) { total += val; count++; }
+            const kda = parseFloat(m['KDA']);
+            if (!isNaN(kda)) {
+                total += kda;
+                count++;
+            }
         });
-        return count > 0 ? (total / count).toFixed(1) : "-";
+        return count ? (total / count).toFixed(1) : "-";
     },
 
-    findMainChamp(matches) {
-        if (!matches.length) return { name: '-', count: 0 };
-        
+    getMainChamp(matches) {
+        if (!matches.length) return { name: '-', count: 0, id: '' };
         const counts = {};
         matches.forEach(m => {
             const c = m['Champion'];
             counts[c] = (counts[c] || 0) + 1;
         });
-        
-        const bestChamp = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-        return { name: bestChamp, count: counts[bestChamp] };
+        const best = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+        // Remove caracteres especiais para URL da imagem
+        const cleanId = best.replace(/[^a-zA-Z0-9]/g, '');
+        return { name: best, count: counts[best], id: cleanId };
     },
 
-    processChartData(matches) {
-        return matches.map(match => {
-            const dpm = parseFloat(match['Damage/Min']) || 0;
-            const gpm = parseFloat(match['Gold/Min']) || 1;
+    prepareChartData(matches) {
+        return matches.map(m => {
+            const dpm = parseFloat(m['Damage/Min']) || 0;
+            const gpm = parseFloat(m['Gold/Min']) || 1;
+            const eff = (dpm / gpm) * 100;
             
-            // Cálculo de eficiência
-            const efficiency = (dpm / gpm) * 100;
-            const radius = Math.max(5, efficiency / 6); // Tamanho mínimo da bolha
+            // Define cor e status
+            const isWin = (m['Win Rate %'] == 1 || m['Win Rate %'] == 100);
             
+            // Tamanho da bolha (controlado)
+            let r = eff / 6;
+            if (r < 5) r = 5;
+            if (r > 30) r = 30;
+
             return {
                 x: gpm,
                 y: dpm,
-                r: radius,
-                champ: match['Champion'],
-                win: (match['Win Rate %'] == 1 || match['Win Rate %'] == 100),
-                efficiency: efficiency.toFixed(0)
+                r: r,
+                champ: m['Champion'],
+                win: isWin,
+                efficiency: eff.toFixed(0)
             };
         });
     }
 };
 
 // ==========================================
-// 4. GRÁFICO (CHART.JS)
+// 4. GERENCIADOR DE GRÁFICO (CHART)
 // ==========================================
-const ChartManager = {
-    // Plugin para desenhar a imagem dentro da bolha
-    championImagePlugin: {
-        id: 'customImage',
+const ChartSystem = {
+    // Plugin Customizado: Desenha Imagem na Bolha
+    imagePlugin: {
+        id: 'champImages',
         afterDatasetDraw(chart, args) {
             const { ctx } = chart;
             const meta = args.meta;
-            
-            meta.data.forEach((element, index) => {
-                const dataPoint = chart.data.datasets[meta.index].data[index];
-                const { x, y } = element.getProps(['x', 'y'], true);
-                const radius = element.options.radius;
 
-                if (dataPoint.image && dataPoint.image.complete && dataPoint.image.naturalHeight !== 0) {
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, Math.PI * 2, true);
-                    ctx.closePath();
-                    ctx.clip();
-                    ctx.drawImage(dataPoint.image, x - radius, y - radius, radius * 2, radius * 2);
-                    
-                    // Borda: Azul (Vitória) / Vermelho (Derrota)
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = dataPoint.win ? '#5383e8' : '#e84057';
-                    ctx.stroke();
-                    ctx.restore();
-                }
+            meta.data.forEach((element, index) => {
+                const dp = chart.data.datasets[meta.index].data[index];
+                if (!dp.image || !dp.image.complete || dp.image.naturalHeight === 0) return;
+
+                const { x, y } = element.getProps(['x', 'y'], true);
+                const r = element.options.radius;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.clip();
+                ctx.drawImage(dp.image, x - r, y - r, r * 2, r * 2);
+
+                // Borda (Azul/Vermelha)
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = dp.win ? '#5383e8' : '#e84057';
+                ctx.stroke();
+                ctx.restore();
             });
         }
     },
 
-    // Pré-carrega imagens para evitar "piscar"
-    preloadImages(dataPoints, onReady) {
-        let loaded = 0;
+    // Carregador de Imagens
+    loadImages(dataPoints, callback) {
+        let loadedCount = 0;
         const total = dataPoints.length;
-        
-        if (total === 0) { onReady(); return []; }
+        if (total === 0) { callback(); return []; }
 
         return dataPoints.map(point => {
             const img = new Image();
+            // Limpa nome para URL (ex: "K'Sante" -> "KSante")
             const cleanName = point.champ.replace(/[^a-zA-Z0-9]/g, '');
+            // Tratamento especial para Wukong/Renata se necessário, mas regex costuma bastar
             img.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
             
             img.onload = () => {
-                loaded++;
-                // Atualiza quando tudo carregar ou a cada 5 imagens
-                if (loaded === total || loaded % 5 === 0) onReady(); 
+                loadedCount++;
+                if (loadedCount === total || loadedCount % 5 === 0) callback();
             };
-            img.onerror = () => { loaded++; }; // Não trava se a imagem falhar
+            img.onerror = () => { loadedCount++; }; // Não trava se falhar
+            
             return { ...point, image: img };
         });
     },
@@ -223,18 +247,35 @@ const ChartManager = {
     render(rawData) {
         if (chartInstance) chartInstance.destroy();
 
-        const dataWithImages = this.preloadImages(rawData, () => chartInstance?.update());
-        
-        const vitorias = dataWithImages.filter(d => d.win);
-        const derrotas = dataWithImages.filter(d => !d.win);
+        // 1. Prepara dados com imagens
+        const dataWithImages = this.loadImages(rawData, () => {
+            if (chartInstance) chartInstance.update();
+        });
 
-        chartInstance = new Chart(UI_ELEMENTS.chartCanvas, {
+        // 2. Separa vitórias e derrotas
+        const wins = dataWithImages.filter(d => d.win);
+        const losses = dataWithImages.filter(d => !d.win);
+
+        // 3. Cria o Gráfico
+        chartInstance = new Chart(UI.chartCtx, {
             type: 'bubble',
-            plugins: [this.championImagePlugin],
+            plugins: [this.imagePlugin],
             data: {
                 datasets: [
-                    { label: 'Vitória', data: vitorias, backgroundColor: 'rgba(83, 131, 232, 0.1)', hoverRadius: 0 },
-                    { label: 'Derrota', data: derrotas, backgroundColor: 'rgba(232, 64, 87, 0.1)', hoverRadius: 0 }
+                    {
+                        label: 'Vitória',
+                        data: wins,
+                        backgroundColor: 'rgba(83, 131, 232, 0.1)', // Fundo azul claro
+                        borderColor: 'transparent',
+                        hoverRadius: 0
+                    },
+                    {
+                        label: 'Derrota',
+                        data: losses,
+                        backgroundColor: 'rgba(232, 64, 87, 0.1)', // Fundo vermelho claro
+                        borderColor: 'transparent',
+                        hoverRadius: 0
+                    }
                 ]
             },
             options: {
@@ -247,21 +288,29 @@ const ChartManager = {
                         titleColor: '#c8aa6e',
                         bodyColor: '#fff',
                         callbacks: {
-                            label: c => {
-                                const d = c.raw;
+                            label: (ctx) => {
+                                const d = ctx.raw;
                                 return [
-                                    ` ${d.champ}`, 
-                                    ` Eficiência: ${d.efficiency}%`, 
-                                    ` Dano/min: ${d.y.toFixed(0)}`, 
-                                    ` Gold/min: ${d.x.toFixed(0)}`
+                                    ` ${d.champ}`,
+                                    ` Eficiência: ${d.efficiency}%`,
+                                    ` Dano/Min: ${d.y}`,
+                                    ` Gold/Min: ${d.x}`
                                 ];
                             }
                         }
                     }
                 },
                 scales: {
-                    x: { title: { display: true, text: 'Gold/Min', color: '#8a92a3' }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8a92a3' } },
-                    y: { title: { display: true, text: 'Damage/Min', color: '#8a92a3' }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8a92a3' } }
+                    x: {
+                        title: { display: true, text: 'Gold por Minuto', color: '#8a92a3' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#8a92a3' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Dano por Minuto', color: '#8a92a3' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#8a92a3' }
+                    }
                 }
             }
         });
@@ -269,121 +318,111 @@ const ChartManager = {
 };
 
 // ==========================================
-// 5. INTERFACE (UI)
-// ==========================================
-const UIManager = {
-    updateHeader(nick, stats) {
-        UI_ELEMENTS.welcome.innerText = `Análise: ${nick}`;
-        UI_ELEMENTS.stats.winrate.innerText = stats.winrate;
-        UI_ELEMENTS.stats.kda.innerText = stats.kda;
-        UI_ELEMENTS.stats.mainChampName.innerText = stats.mainChamp.name;
-        UI_ELEMENTS.stats.mainChampCount.innerText = `${stats.mainChamp.count} Partidas`;
-        
-        if(stats.mainChamp.name !== '-') {
-            const cleanName = stats.mainChamp.name.replace(/[^a-zA-Z0-9]/g, '');
-            UI_ELEMENTS.stats.mainChampImg.src = `${CONFIG.CDRAGON_URL}${cleanName}.png`;
-        }
-    },
-
-    renderSuggestions(list) {
-        UI_ELEMENTS.suggestions.innerHTML = '';
-        list.forEach(nick => {
-            const div = document.createElement('div');
-            div.className = 'suggestion-item';
-            const [name, tag] = nick.split('#');
-            div.innerHTML = `<span>${name}</span><strong style="font-size:0.8rem; color:#666;">#${tag || ''}</strong>`;
-            
-            div.addEventListener('click', () => App.loadPlayer(nick));
-            UI_ELEMENTS.suggestions.appendChild(div);
-        });
-    },
-
-    toggleSuggestions(show) {
-        UI_ELEMENTS.suggestions.style.display = show ? 'block' : 'none';
-    }
-};
-
-// ==========================================
-// 6. CONTROLADOR PRINCIPAL (APP)
+// 5. APLICAÇÃO PRINCIPAL (APP)
 // ==========================================
 const App = {
     async init() {
-        const session = await PlayerService.checkSession();
+        // Verifica Login
+        const session = await DataService.getSession();
         if (!session) {
             window.location.href = "index.html";
             return;
         }
 
-        const userMeta = session.user.user_metadata;
-        UI_ELEMENTS.welcome.innerText = `Bem-vindo ao Rift, ${userMeta.lol_nick || "Sem Nick"}.`;
-        UI_ELEMENTS.userNick.innerText = userMeta.full_name || "Invocador";
-        UI_ELEMENTS.loading.style.display = 'none';
+        // Configura Tela Inicial
+        const meta = session.user.user_metadata;
+        UI.welcome.innerText = `Olá, ${meta.lol_nick || "Invocador"}`;
+        UI.userNick.innerText = meta.full_name || "Usuário";
+        UI.loading.style.display = 'none';
 
-        // Carrega jogador padrão
+        // Event Listeners
+        this.setupEvents();
+
+        // Carrega Jogador Padrão (Ex: Zekas)
         this.loadPlayer("Zekas#2002");
-        this.setupListeners();
     },
 
-    setupListeners() {
-        UI_ELEMENTS.search.addEventListener('focus', () => this.handleSearchInput());
-        UI_ELEMENTS.search.addEventListener('input', () => this.handleSearchInput());
+    setupEvents() {
+        // Busca Dinâmica
+        UI.search.addEventListener('input', (e) => this.handleSuggestion(e.target.value));
+        UI.search.addEventListener('focus', (e) => this.handleSuggestion(e.target.value));
         
+        // Fechar sugestões ao clicar fora
         document.addEventListener('click', (e) => {
-            if (!UI_ELEMENTS.search.contains(e.target) && !UI_ELEMENTS.suggestions.contains(e.target)) {
-                UIManager.toggleSuggestions(false);
+            if (!UI.search.contains(e.target) && !UI.suggestions.contains(e.target)) {
+                UI.suggestions.style.display = 'none';
             }
         });
 
-        UI_ELEMENTS.logoutBtn.addEventListener('click', async () => {
-            await PlayerService.logout();
+        // Logout
+        UI.logoutBtn.addEventListener('click', async () => {
+            await DataService.signOut();
             window.location.href = "index.html";
         });
     },
 
-    handleSearchInput() {
-        const term = UI_ELEMENTS.search.value.toLowerCase();
-        const list = term === "" 
-            ? CONFIG.SUGGESTED_NICKS 
-            : CONFIG.SUGGESTED_NICKS.filter(n => n.toLowerCase().includes(term));
+    handleSuggestion(text) {
+        const term = text.toLowerCase();
+        const matches = CONFIG.SUGGESTED_NICKS.filter(n => n.toLowerCase().includes(term));
         
-        if (list.length > 0) {
-            UIManager.renderSuggestions(list);
-            UIManager.toggleSuggestions(true);
+        if (matches.length > 0) {
+            UI.suggestions.innerHTML = matches.map(nick => {
+                const [n, t] = nick.split('#');
+                return `<div class="suggestion-item" onclick="App.loadPlayer('${nick}')">
+                            <span>${n}</span><small>#${t||''}</small>
+                        </div>`;
+            }).join('');
+            UI.suggestions.style.display = 'block';
         } else {
-            UIManager.toggleSuggestions(false);
+            UI.suggestions.style.display = 'none';
         }
     },
 
+    // Ação Principal: Carregar Jogador
     async loadPlayer(nick) {
-        UI_ELEMENTS.search.value = nick;
-        UIManager.toggleSuggestions(false);
-        UI_ELEMENTS.welcome.innerText = `Carregando dados de ${nick}...`;
+        UI.search.value = nick;
+        UI.suggestions.style.display = 'none';
+        UI.welcome.innerText = `Analisando: ${nick}...`;
 
         try {
-            const matches = await PlayerService.fetchHistory(nick);
-            
+            const matches = await DataService.fetchPlayerHistory(nick);
+
             if (matches.length === 0) {
-                alert("Nenhuma partida encontrada ou jogador sem dados.");
-                UI_ELEMENTS.welcome.innerText = `Sem dados: ${nick}`;
+                alert(`Nenhuma partida encontrada para "${nick}".\nVerifique se o nome está correto ou se há dados no banco.`);
+                UI.welcome.innerText = "Sem dados encontrados.";
                 return;
             }
 
+            // Atualiza Dashboard
             const stats = {
-                winrate: StatsCalculator.calculateWinrate(matches),
-                kda: StatsCalculator.calculateAvgKDA(matches),
-                mainChamp: StatsCalculator.findMainChamp(matches)
+                win: Calculator.getWinrate(matches),
+                kda: Calculator.getKDA(matches),
+                main: Calculator.getMainChamp(matches)
             };
 
-            UIManager.updateHeader(nick, stats);
-            const chartData = StatsCalculator.processChartData(matches);
-            ChartManager.render(chartData);
+            UI.welcome.innerText = `Relatório: ${nick}`;
+            UI.stats.winrate.innerText = stats.win;
+            UI.stats.kda.innerText = stats.kda;
+            UI.stats.mainChampName.innerText = stats.main.name;
+            UI.stats.mainChampCount.innerText = `${stats.main.count} Jogos`;
+            
+            if (stats.main.id) {
+                UI.stats.mainChampImg.src = `${CONFIG.CDRAGON_URL}${stats.main.id}.png`;
+            }
 
-        } catch (err) {
-            console.error(err);
-            alert("Erro ao processar dados.");
+            // Renderiza Gráfico
+            const chartData = Calculator.prepareChartData(matches);
+            ChartSystem.render(chartData);
+
+        } catch (error) {
+            console.error(error);
+            alert("Ocorreu um erro ao carregar os dados. Veja o console (F12).");
         }
     }
 };
 
-// Iniciar Aplicação
+// Torna global para o HTML acessar (onclick)
+window.App = App;
+
+// Iniciar
 App.init();
