@@ -63,11 +63,23 @@ async function fetchAndLogMatches(nick) {
             linha['Player Name'].toLowerCase().includes(nick.toLowerCase())
         );
 
-        console.log(`👤 Linhas correspondentes ao nick "${nick}": ${dadosDoJogador.length}`);
+        console.log(`👤 Linhas correspondentes ao nick "${nick}" (antes da limpeza): ${dadosDoJogador.length}`);
+
+        // =========================================================
+        // 2.5. REMOÇÃO DE DUPLICATAS (NOVO CÓDIGO)
+        // =========================================================
+        // Criamos um Map onde a chave é o 'Match ID'.
+        // Como o Map não aceita chaves repetidas, ele mantém apenas uma versão de cada partida.
+        const dadosUnicos = Array.from(
+            new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
+        );
+
+        console.log(`✨ Linhas ÚNICAS após remover duplicatas: ${dadosUnicos.length}`);
+        // =========================================================
 
         // 3. Extração dos Dados Solicitados (Match ID e Champion)
-        // Mapeamos para um objeto simples para facilitar a leitura no console
-        const resultadoLimpo = dadosDoJogador.map(linha => {
+        // AGORA USAMOS 'dadosUnicos' EM VEZ DE 'dadosDoJogador'
+        const resultadoLimpo = dadosUnicos.map(linha => {
             return {
                 MatchID: linha['Match ID'],
                 Champion: linha['Champion'],
@@ -79,7 +91,7 @@ async function fetchAndLogMatches(nick) {
         // 4. Exibe a tabela no Console
         console.table(resultadoLimpo);
 
-        // Verifica se tem duplicatas visuais
+        // Verifica se tem duplicatas visuais (Agora deve dar sucesso ✅)
         verificarDuplicatas(resultadoLimpo);
 
     } catch (err) {
