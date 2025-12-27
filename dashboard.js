@@ -1,5 +1,5 @@
 // =========================================================
-// 1. CONFIGURAÇÃO E VARIÁVEIS GLOBAIS
+// 1. CONFIGURAÇÃO
 // =========================================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
@@ -11,15 +11,16 @@ const UI = {
     logout: document.getElementById('logoutBtn')
 };
 
-// Variáveis para guardar os gráficos e poder destruí-los ao recarregar
+// Variáveis Globais dos Gráficos
 let chartBubble = null;
 let chartBar = null;
+let chartXP = null;
 
 // =========================================================
 // 2. INICIALIZAÇÃO
 // =========================================================
 function init() {
-    console.log("🚀 Dashboard Final Iniciado");
+    console.log("🚀 Dashboard Completo Iniciado");
 
     if (UI.logout) {
         UI.logout.addEventListener('click', async () => {
@@ -38,14 +39,13 @@ function init() {
 }
 
 // =========================================================
-// 3. BUSCA E TRATAMENTO DE DADOS
+// 3. BUSCA E TRATAMENTO
 // =========================================================
 async function buscarDados(nick) {
     console.clear();
-    console.log(`🔎 Buscando dados para: "${nick}"...`);
+    console.log(`🔎 Buscando: "${nick}"...`);
 
     try {
-        // Ordena por data para pegar a evolução cronológica
         const { data, error } = await supabaseClient
             .from('partidas_br')
             .select('*')
@@ -54,222 +54,270 @@ async function buscarDados(nick) {
 
         if (error) throw error;
         if (!data || data.length === 0) {
-            alert("Jogador não encontrado ou sem partidas processadas.");
+            alert("Jogador não encontrado.");
             return;
         }
 
-        // Filtro exato de nome
         const dadosDoJogador = data.filter(linha => 
             linha['Player Name'].toLowerCase().includes(nick.toLowerCase())
         );
 
-        // --- REMOÇÃO DE DUPLICATAS ---
-        // Usa o Match ID como chave única para garantir que não haja repetições
+        // Remove duplicatas (Match ID único)
         const dadosUnicos = Array.from(
             new Map(dadosDoJogador.map(item => [item['Match ID'], item])).values()
         );
 
-        console.log(`✅ ${dadosUnicos.length} partidas únicas carregadas.`);
-
-        // Renderiza os gráficos
+        console.log(`✅ ${dadosUnicos.length} partidas carregadas.`);
+        
         renderizarGraficos(dadosUnicos);
 
     } catch (err) {
-        console.error("Erro na busca:", err);
+        console.error("Erro:", err);
     }
 }
 
 // =========================================================
-// 4. RENDERIZAÇÃO DOS GRÁFICOS
+// 4. RENDERIZAÇÃO
 // =========================================================
 async function renderizarGraficos(dados) {
-    // Pega as últimas 20 partidas para não poluir demais a tela
+    // Para Bolhas e Barras: Apenas os últimos 20 jogos (Visual limpo)
     const dadosRecentes = dados.slice(-20);
+    
+    // Para Probabilidade (XP): Usa TODOS os dados (Estatística)
+    const dadosCompletos = dados; 
 
-    // Carrega as imagens dos campeões ANTES de desenhar
+    // Carrega imagens antes de desenhar
     const imagensMap = await carregarImagensCampeoes(dadosRecentes);
 
-    // --- GRÁFICO 1: BUBBLE CHART (PERSONALIZADO) ---
-    const ctx1 = document.getElementById('graficoPrincipal');
-    
-    if (ctx1) {
-        if (chartBubble) chartBubble.destroy();
+    // --- GRÁFICO 1: BUBBLE CHART (IMAGENS REDONDAS) ---
+    renderizarBubble(dadosRecentes, imagensMap);
 
-        // Mapeamento dos dados para o formato do Chart.js
-        const bubbleData = dadosRecentes.map(d => {
-            // Cálculo da duração (com proteção para dados legados)
-            let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
-            
-            // GPM Exato
-            const gpm = d['Gold Earned'] / duracao;
+    // --- GRÁFICO 2: BARRAS DE FARM ---
+    renderizarFarm(dadosRecentes);
 
-            // --- AJUSTE DE ESCALA (TAMANHO DA BOLHA) ---
-            // ESCALA_BASE define o tamanho em pixels (raio) se o jogador tiver 450 de GPM.
-            // 45px de raio = 90px de diâmetro (Bem visível)
-            const ESCALA_BASE = 45; 
-            const radiusPixel = (gpm / 450) * ESCALA_BASE;
-
-            return {
-                x: d['Damage/Min'],
-                y: d['Gold/Min'],
-                r: radiusPixel,     // Raio calculado
-                champion: d['Champion'],
-                win: d['Win Rate %'] === 1,
-                gpm: gpm.toFixed(0),
-                rawDamage: d['Damage/Min'].toFixed(0)
-            };
-        });
-
-        // --- PLUGIN CUSTOMIZADO: DESENHA IMAGEM REDONDA ---
-        const imageProfilePlugin = {
-            id: 'customAvatar',
-            afterDatasetDraw(chart, args, options) {
-                const { ctx } = chart;
-                const meta = chart.getDatasetMeta(0);
-                
-                meta.data.forEach((element, index) => {
-                    const dataPoint = bubbleData[index];
-                    const img = imagensMap[dataPoint.champion];
-                    
-                    if (!img) return;
-
-                    const { x, y } = element.tooltipPosition();
-                    const radius = element.options.radius; // Pega o raio que calculamos acima
-
-                    ctx.save();
-                    
-                    // 1. Cria o caminho do Círculo
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.closePath();
-                    
-                    // 2. Recorta (Clip) tudo que estiver fora
-                    ctx.clip();
-                    
-                    // 3. Desenha a imagem esticada para preencher o círculo
-                    ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
-                    
-                    // 4. Restaura o contexto (sai do modo "recorte")
-                    ctx.restore();
-
-                    // 5. Desenha a Borda Colorida por cima
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.lineWidth = 3; 
-                    ctx.strokeStyle = dataPoint.win ? '#00BFFF' : '#FF4500'; // Azul ou Vermelho
-                    ctx.stroke();
-                });
-            }
-        };
-
-        chartBubble = new Chart(ctx1, {
-            type: 'bubble',
-            data: {
-                datasets: [{
-                    label: 'Performance',
-                    data: bubbleData,
-                    backgroundColor: 'transparent', // Transparente para ver a imagem
-                    borderColor: 'transparent',
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const d = context.raw;
-                                const status = d.win ? "Vitória" : "Derrota";
-                                return `${d.champion} (${status}) | Dano: ${d.rawDamage} | GPM: ${d.gpm}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        title: { display: true, text: 'Dano por Minuto (DPM)', color: '#aaa' },
-                        grid: { color: '#333' },
-                        ticks: { color: '#eee' }
-                    },
-                    y: {
-                        title: { display: true, text: 'Ouro por Minuto (GPM)', color: '#aaa' },
-                        grid: { color: '#333' },
-                        ticks: { color: '#eee' }
-                    }
-                }
-            },
-            // Registra o plugin nesta instância do gráfico
-            plugins: [imageProfilePlugin]
-        });
-    }
-
-    // --- GRÁFICO 2: BARRAS DE FARM (CS/Min) ---
-    const ctx2 = document.getElementById('graficoFarm');
-    if (ctx2) {
-        if (chartBar) chartBar.destroy();
-        
-        const labels = dadosRecentes.map(d => d.Champion);
-        const csData = dadosRecentes.map(d => d['Farm/Min']);
-
-        chartBar = new Chart(ctx2, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'CS por Minuto',
-                    data: csData,
-                    backgroundColor: '#4BC0C0',
-                    borderColor: '#36A2EB',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#333' } },
-                    x: { display: false } // Oculta labels do eixo X para ficar mais limpo
-                }
-            }
-        });
-    }
+    // --- GRÁFICO 3: LINHA DE PROBABILIDADE (XP DIFF) ---
+    renderizarXPProbability(dadosCompletos);
 }
 
-// =========================================================
-// 5. UTILITÁRIOS (CARREGAMENTO DE IMAGENS)
-// =========================================================
+// ---------------------------------------------------------
+// A. FUNÇÃO DO GRÁFICO DE BOLHAS
+// ---------------------------------------------------------
+function renderizarBubble(dados, imagensMap) {
+    const ctx = document.getElementById('graficoPrincipal');
+    if (!ctx) return;
+    if (chartBubble) chartBubble.destroy();
+
+    const bubbleData = dados.map(d => {
+        let duracao = d['Game Duration'] || (d['Gold Earned'] / (d['Gold/Min'] || 1));
+        const gpm = d['Gold Earned'] / duracao;
+
+        // --- ESCALA DO TAMANHO ---
+        // Se o jogador tiver 450 GPM, o raio será 45px (grande).
+        const ESCALA_BASE = 45; 
+        const radiusPixel = (gpm / 450) * ESCALA_BASE;
+
+        return {
+            x: d['Damage/Min'],
+            y: d['Gold/Min'],
+            r: radiusPixel,
+            champion: d['Champion'],
+            win: d['Win Rate %'] === 1,
+            gpm: gpm.toFixed(0),
+            rawDamage: d['Damage/Min'].toFixed(0)
+        };
+    });
+
+    const imageProfilePlugin = {
+        id: 'customAvatar',
+        afterDatasetDraw(chart) {
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0);
+            
+            meta.data.forEach((element, index) => {
+                const dataPoint = bubbleData[index];
+                const img = imagensMap[dataPoint.champion];
+                if (!img) return;
+
+                const { x, y } = element.tooltipPosition();
+                const radius = element.options.radius;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.clip();
+                ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+                ctx.restore();
+
+                // Borda
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = dataPoint.win ? '#00BFFF' : '#FF4500';
+                ctx.stroke();
+            });
+        }
+    };
+
+    chartBubble = new Chart(ctx, {
+        type: 'bubble',
+        data: {
+            datasets: [{
+                label: 'Performance',
+                data: bubbleData,
+                backgroundColor: 'transparent', 
+                borderColor: 'transparent',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.raw.champion}: ${ctx.raw.rawDamage} Dano | ${ctx.raw.gpm} GPM`
+                    }
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Dano/Min', color: '#aaa' }, grid: { color: '#333' } },
+                y: { title: { display: true, text: 'Ouro/Min', color: '#aaa' }, grid: { color: '#333' } }
+            }
+        },
+        plugins: [imageProfilePlugin]
+    });
+}
+
+// ---------------------------------------------------------
+// B. FUNÇÃO DO GRÁFICO DE FARM
+// ---------------------------------------------------------
+function renderizarFarm(dados) {
+    const ctx = document.getElementById('graficoFarm');
+    if (!ctx) return;
+    if (chartBar) chartBar.destroy();
+
+    const labels = dados.map(d => d.Champion);
+    const csData = dados.map(d => d['Farm/Min']);
+
+    chartBar = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'CS/Min',
+                data: csData,
+                backgroundColor: '#4BC0C0',
+                borderColor: '#36A2EB',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#333' } },
+                x: { display: false }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------
+// C. FUNÇÃO DO GRÁFICO DE PROBABILIDADE XP (NOVO)
+// ---------------------------------------------------------
+function renderizarXPProbability(dados) {
+    const ctx = document.getElementById('graficoXPWinrate');
+    if (!ctx) return;
+    if (chartXP) chartXP.destroy();
+
+    // 1. Buckets de 500 em 500 XP
+    const buckets = {};
+    const TAMANHO_BALDE = 500; 
+
+    dados.forEach(d => {
+        // Pega XP Diff aos 12 (Certifique-se que o nome da coluna no Python está igual a este)
+        // Se no Python for "XP Diff 12'", use isso. Se for outro nome, ajuste aqui.
+        const xpDiff = d["XP Diff 12'"] || d["XP Diff 12"] || 0; 
+        
+        const bucketKey = Math.round(xpDiff / TAMANHO_BALDE) * TAMANHO_BALDE;
+
+        if (!buckets[bucketKey]) buckets[bucketKey] = { wins: 0, total: 0 };
+        
+        buckets[bucketKey].total++;
+        if (d['Win Rate %'] === 1) buckets[bucketKey].wins++;
+    });
+
+    // 2. Prepara dados ordenados
+    let chartData = Object.keys(buckets).map(key => {
+        const k = parseInt(key);
+        const winRate = (buckets[key].wins / buckets[key].total) * 100;
+        return { x: k, y: winRate, total: buckets[key].total };
+    });
+    chartData.sort((a, b) => a.x - b.x);
+
+    chartXP = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.map(d => d.x > 0 ? `+${d.x}` : d.x),
+            datasets: [{
+                label: 'Chance de Vitória',
+                data: chartData.map(d => d.y),
+                borderColor: '#22d3ee', // Ciano Neon
+                backgroundColor: 'rgba(34, 211, 238, 0.2)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true, max: 100,
+                    title: { display: true, text: 'Probabilidade (%)', color: '#aaa' },
+                    grid: { color: '#333' },
+                    ticks: { callback: (v) => v + '%' }
+                },
+                x: {
+                    title: { display: true, text: 'Vantagem de XP aos 12 min', color: '#aaa' },
+                    grid: { color: '#333' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `Chance: ${ctx.raw.y.toFixed(1)}% (${ctx.raw.total} jogos)`
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------
+// UTILITÁRIO: CARREGAMENTO DE IMAGENS
+// ---------------------------------------------------------
 async function carregarImagensCampeoes(dados) {
     const map = {};
     const promessas = dados.map(d => {
         return new Promise((resolve) => {
             const img = new Image();
-            
-            // Tratamento de nomes (Exceções da API da Riot)
             let champName = d.Champion;
             if (champName === "FiddleSticks") champName = "Fiddlesticks"; 
             if (champName === "Renata") champName = "RenataGlasc"; 
 
-            // URL DataDragon
             img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champName}.png`;
             
-            img.onload = () => {
-                map[d.Champion] = img;
-                resolve();
-            };
-            img.onerror = () => {
-                // Se der erro, não quebra o gráfico, apenas não desenha a imagem
-                console.warn(`Imagem não encontrada para: ${champName}`);
-                map[d.Champion] = null; 
-                resolve();
-            };
+            img.onload = () => { map[d.Champion] = img; resolve(); };
+            img.onerror = () => { map[d.Champion] = null; resolve(); };
         });
     });
-
     await Promise.all(promessas);
     return map;
 }
 
-// Inicializa o script
 init();
