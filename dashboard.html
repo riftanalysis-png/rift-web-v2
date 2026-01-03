@@ -3,131 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Analytics | Sesshomaru Edition</title>
-    
+    <title>Nexus Analytics | Sesshomaru</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <div class="dashboard-container">
-        
         <aside class="sidebar">
-            <div class="brand">
-                <h3><span>⚡</span> NEXUS</h3>
-            </div>
-            
+            <div class="brand"><h3><span>⚡</span> NEXUS</h3></div>
             <nav>
                 <a href="#" class="active"><i class="fas fa-chart-pie"></i> Dashboard</a>
                 <a href="#"><i class="fas fa-users"></i> Jogadores</a>
                 <a href="#"><i class="fas fa-trophy"></i> Rankings</a>
-                <a href="#"><i class="fas fa-cog"></i> Configurações</a>
             </nav>
-
-            <div class="user-info">
-                <button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Sair</button>
-            </div>
+            <div class="user-info"><button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Sair</button></div>
         </aside>
 
         <main class="content">
-            
             <header class="dashboard-header">
-                <div>
-                    <h1>Visão Geral</h1>
-                    <p style="color: var(--text-secondary); margin-top: 5px;">Análise de Performance e Estatísticas</p>
-                </div>
-
+                <div><h1>Visão Geral</h1><p style="color: var(--text-secondary);">Análise de Performance</p></div>
                 <div class="search-container">
-                    <div class="input-wrapper">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="playerSearch" placeholder="Buscar Jogador (Ex: Zekas#2002)...">
-                    </div>
+                    <div class="input-wrapper"><i class="fas fa-search search-icon"></i><input type="text" id="playerSearch" placeholder="Buscar Jogador (Ex: Zekas#2002)..."></div>
                 </div>
             </header>
 
             <h3 class="section-title">Performance de Carry</h3>
-            
             <div class="stats-grid">
                 <div class="card chart-card">
                     <div class="chart-header">
                         <h3>Eficiência (Dano vs Ouro)</h3>
-                        <div class="chart-legend">
-                            <span style="color: var(--win-blue);"><i class="fas fa-circle"></i> Vitória</span>
-                            <span style="color: var(--lose-red);"><i class="fas fa-circle"></i> Derrota</span>
-                        </div>
+                        <div class="chart-legend"><span style="color: var(--win-blue);"><i class="fas fa-circle"></i> Vitória</span><span style="color: var(--lose-red);"><i class="fas fa-circle"></i> Derrota</span></div>
                     </div>
-                    <div class="chart-container tall">
-                        <canvas id="graficoPrincipal"></canvas>
-                    </div>
+                    <div class="chart-container tall"><canvas id="graficoPrincipal"></canvas></div>
                 </div>
-
                 <div class="card">
-                    <div class="chart-header">
-                        <h3>Farm (CS/Min)</h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="graficoFarm"></canvas>
-                    </div>
+                    <div class="chart-header"><h3>Farm (CS/Min)</h3></div>
+                    <div class="chart-container"><canvas id="graficoFarm"></canvas></div>
                 </div>
             </div>
 
             <h3 class="section-title">Controle & Estratégia</h3>
-            
             <div class="stats-grid">
                 <div class="card">
-                    <div class="chart-header">
-                        <h3>Chance de Vitória (XP @ 12)</h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="graficoXPWinrate"></canvas>
-                    </div>
+                    <div class="chart-header"><h3>Chance de Vitória (XP @ 12)</h3></div>
+                    <div class="chart-container"><canvas id="graficoXPWinrate"></canvas></div>
                 </div>
-
                 <div class="card">
-                    <div class="chart-header">
-                        <h3>Distribuição de XP (Boxplot)</h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="graficoImpactoXP"></canvas>
-                    </div>
+                    <div class="chart-header"><h3>Distribuição de XP (Boxplot)</h3></div>
+                    <div class="chart-container"><canvas id="graficoImpactoXP"></canvas></div>
                 </div>
             </div>
 
             <h3 class="section-title">Análise Relacional</h3>
-            
             <div class="stats-grid">
-                <div class="card">
-                    <div class="chart-header"><h3>Mortes @ 12 vs Totais</h3></div>
-                    <div class="chart-container small"><canvas id="relChart1"></canvas></div>
-                </div>
-                <div class="card">
-                    <div class="chart-header"><h3>Visão/Min vs KP%</h3></div>
-                    <div class="chart-container small"><canvas id="relChart2"></canvas></div>
-                </div>
-                <div class="card">
-                    <div class="chart-header"><h3>Mortes @ 12 vs XP Diff</h3></div>
-                    <div class="chart-container small"><canvas id="relChart3"></canvas></div>
-                </div>
-                <div class="card">
-                    <div class="chart-header"><h3>KP% vs XP Diff</h3></div>
-                    <div class="chart-container small"><canvas id="relChart4"></canvas></div>
-                </div>
-                <div class="card">
-                    <div class="chart-header"><h3>Gold Diff vs CS Diff</h3></div>
-                    <div class="chart-container small"><canvas id="relChart5"></canvas></div>
-                </div>
-                <div class="card">
-                    <div class="chart-header"><h3>Mortes vs KP%</h3></div>
-                    <div class="chart-container small"><canvas id="relChart6"></canvas></div>
-                </div>
+                <div class="card"><div class="chart-header"><h3>Mortes @ 12 vs Totais</h3></div><div class="chart-container small"><canvas id="relChart1"></canvas></div></div>
+                <div class="card"><div class="chart-header"><h3>Visão/Min vs KP%</h3></div><div class="chart-container small"><canvas id="relChart2"></canvas></div></div>
+                <div class="card"><div class="chart-header"><h3>Mortes @ 12 vs XP Diff</h3></div><div class="chart-container small"><canvas id="relChart3"></canvas></div></div>
+                <div class="card"><div class="chart-header"><h3>KP% vs XP Diff</h3></div><div class="chart-container small"><canvas id="relChart4"></canvas></div></div>
+                <div class="card"><div class="chart-header"><h3>Gold Diff vs CS Diff</h3></div><div class="chart-container small"><canvas id="relChart5"></canvas></div></div>
+                <div class="card"><div class="chart-header"><h3>Mortes vs KP%</h3></div><div class="chart-container small"><canvas id="relChart6"></canvas></div></div>
             </div>
-
         </main>
     </div>
-
     <script src="dashboard.js"></script>
 </body>
 </html>
