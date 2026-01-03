@@ -1,18 +1,76 @@
+// ==========================================
+// CONFIGURAÇÃO GERAL
+// ==========================================
 const SUPABASE_URL = "https://fkhvdxjeikswyxwhvdpg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHZkeGplaWtzd3l4d2h2ZHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MjA0NTcsImV4cCI6MjA4MjI5NjQ1N30.AwbRlm7mR8_Uqy97sQ7gfI5zWvO-ZLR1UDkqm3wMbDc";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const THEME = { gold: '#c8aa6e', red: '#e84057', blue: '#5383e8', text: '#8a92a3', grid: 'rgba(255, 255, 255, 0.05)' };
-Chart.defaults.font.family = "'Segoe UI', sans-serif"; Chart.defaults.color = THEME.text; Chart.defaults.borderColor = THEME.grid;
+const THEME = { 
+    gold: '#c8aa6e', 
+    red: '#e84057', 
+    blue: '#5383e8', 
+    text: '#8a92a3', 
+    grid: 'rgba(255, 255, 255, 0.05)',
+    benchmark: '#ffffff'
+};
 
+// Defaults do Chart.js
+Chart.defaults.font.family = "'Segoe UI', sans-serif"; 
+Chart.defaults.color = THEME.text; 
+Chart.defaults.borderColor = THEME.grid;
+
+// Armazena instâncias de gráfico para update/destroy
 let charts = { bubble: null, bar: null, xpLine: null, xpBox: null, rels: {} };
 
+// ==========================================
+// 1. DADOS MOCKADOS: CHALLENGER KR (Benchmark)
+// ==========================================
+const KR_BENCHMARK = {
+    avgCsMin: 9.8,
+    avgVisionScore: 2.1,
+    avgDpm: 680,
+    goldAt14: 4950,
+    objParticipation: 3.5, 
+    survivalScore: 92,
+    powerCurve: [100, 1200, 2500, 4800], // 5, 11, 14, 20 min
+    carrySweetSpot: { x: 550, y: 700 } 
+};
+
+// Dados simulados do Usuário (para teste dos novos gráficos)
+const USER_MOCK = {
+    csHistory: [7.2, 8.5, 6.9, 9.1, 8.0, 7.5, 8.8, 9.2, 6.5, 7.8, 8.2, 8.5, 9.0, 8.1, 7.9, 8.3, 8.6, 9.5, 7.0, 8.4],
+    stats: {
+        dpm: 590,
+        csMin: 8.2,
+        visMin: 1.5,
+        gold14: 4200,
+        objPart: 2.1,
+        survival: 78
+    },
+    matchups: [
+        {x: -800, y: 0}, {x: 200, y: 1}, {x: 1500, y: 1}, {x: -200, y: 0}, 
+        {x: 600, y: 1}, {x: -1200, y: 0}, {x: 300, y: 1}, {x: 0, y: 0}
+    ],
+    powerCurve: [-100, 400, 800, 1200]
+};
+
+// ==========================================
+// 2. INICIALIZAÇÃO
+// ==========================================
 async function init() {
     document.getElementById('playerSearch').addEventListener('keydown', (e) => { if(e.key === 'Enter') buscarDados(e.target.value); });
     document.getElementById('logoutBtn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); window.location.href = "index.html"; });
-    buscarDados(""); // Busca inicial
+    
+    // Inicia gráficos existentes com dados do Supabase (Vazio ou Default)
+    buscarDados(""); 
+
+    // Inicia os NOVOS gráficos de Benchmark (Mockados)
+    initBenchmarkCharts();
 }
 
+// ==========================================
+// 3. LÓGICA DE DADOS REAIS (SUPABASE)
+// ==========================================
 async function buscarDados(nick) {
     // 1. Dados Recentes (Limitado a 50) para Scatter/Farm
     const { data: rawData } = await supabaseClient.from('partidas_br').select('*').ilike('Player Name', `%${nick}%`).order('Game Start Time', { ascending: false }).limit(50);
@@ -145,4 +203,167 @@ async function carregarImagens(dados) {
         img.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${name}.png`; img.onload = () => { map[d.Champion]=img; resolve(); }; img.onerror=resolve;
     }))); return map;
 }
+
+// ==========================================
+// 4. LÓGICA DE BENCHMARK KR (NOVOS GRÁFICOS)
+// ==========================================
+function initBenchmarkCharts() {
+    const normalize = (val, max) => Math.min((val / max) * 100, 120);
+
+    // Cores auxiliares
+    const colorGoldAlpha = 'rgba(200, 170, 110, 0.2)';
+    const colorBlueAlpha = 'rgba(83, 131, 232, 0.2)';
+    
+    // 1. MATCHUP SCATTER
+    const ctxMatchup = document.getElementById('chartMatchup');
+    if (ctxMatchup) {
+        new Chart(ctxMatchup, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Suas Partidas',
+                        data: USER_MOCK.matchups.map(m => ({ x: m.x, y: m.y === 1 ? 100 : 0 })),
+                        backgroundColor: (ctx) => ctx.raw?.y === 100 ? THEME.gold : THEME.red,
+                        pointRadius: 6
+                    },
+                    {
+                        label: 'Zona KR',
+                        data: [{x: 1000, y: 55}], 
+                        pointStyle: 'crossRot', borderColor: '#fff', pointRadius: 10
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: {display: true, text: 'Gold Diff @ 14', color: '#fff'}, grid: {color: c=>c.tick.value===0?'#fff':THEME.grid} },
+                    y: { min: -10, max: 110, display: false }
+                },
+                plugins: { legend: {display: false} }
+            }
+        });
+    }
+
+    // 2. EVOLUÇÃO FARM
+    const ctxFarmEvo = document.getElementById('chartFarmEvo');
+    if (ctxFarmEvo) {
+        new Chart(ctxFarmEvo, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 20}, (_, i) => i + 1),
+                datasets: [
+                    {
+                        label: 'Média KR', data: Array(20).fill(KR_BENCHMARK.avgCsMin),
+                        borderColor: '#fff', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0
+                    },
+                    {
+                        label: 'Você', data: USER_MOCK.csHistory,
+                        borderColor: THEME.gold, backgroundColor: colorGoldAlpha, fill: true, tension: 0.3, pointRadius: 3
+                    }
+                ]
+            },
+            options: { maintainAspectRatio: false, scales: { y: { beginAtZero: false, min: 4 } }, plugins: { legend: {display: false} } }
+        });
+    }
+
+    // 3. RADAR
+    const ctxRadar = document.getElementById('chartRadar');
+    if (ctxRadar) {
+        new Chart(ctxRadar, {
+            type: 'radar',
+            data: {
+                labels: ['Dano', 'Farm', 'Visão', 'Gold@14', 'Objetivos', 'Sobrev.'],
+                datasets: [
+                    {
+                        label: 'KR Benchmark', data: [100, 100, 100, 100, 100, 100],
+                        borderColor: '#fff', borderWidth: 1, pointRadius: 0, backgroundColor: 'transparent'
+                    },
+                    {
+                        label: 'Você',
+                        data: [
+                            normalize(USER_MOCK.stats.dpm, KR_BENCHMARK.avgDpm),
+                            normalize(USER_MOCK.stats.csMin, KR_BENCHMARK.avgCsMin),
+                            normalize(USER_MOCK.stats.visMin, KR_BENCHMARK.avgVisionScore),
+                            normalize(USER_MOCK.stats.gold14, KR_BENCHMARK.goldAt14),
+                            normalize(USER_MOCK.stats.objPart, KR_BENCHMARK.objParticipation),
+                            normalize(USER_MOCK.stats.survival, KR_BENCHMARK.survivalScore)
+                        ],
+                        borderColor: THEME.blue, backgroundColor: 'rgba(83, 131, 232, 0.4)', pointBackgroundColor: THEME.blue
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: { r: { angleLines: {color: THEME.grid}, grid: {color: THEME.grid}, pointLabels: {color: '#fff', font: {size: 11}}, ticks: {display: false}, suggestedMin: 0, suggestedMax: 100 } }
+            }
+        });
+    }
+
+    // 4. BUBBLE CARRY
+    const ctxCarry = document.getElementById('chartCarryBenchmark');
+    if (ctxCarry) {
+        new Chart(ctxCarry, {
+            type: 'bubble',
+            data: {
+                datasets: [
+                    {
+                        label: 'KR Ideal', data: [{x: KR_BENCHMARK.carrySweetSpot.x, y: KR_BENCHMARK.carrySweetSpot.y, r: 15}],
+                        backgroundColor: '#fff', borderColor: '#fff', pointStyle: 'star'
+                    },
+                    {
+                        label: 'Você', data: [{x: 450, y: 500, r: 8}, {x: 520, y: 600, r: 10}, {x: 400, y: 350, r: 6}],
+                        backgroundColor: THEME.gold, borderColor: 'transparent'
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: { x: {title: {display: true, text: 'Ouro/Min', color: THEME.text}}, y: {title: {display: true, text: 'Dano/Min', color: THEME.text}} },
+                plugins: { legend: {display: false} }
+            }
+        });
+    }
+
+    // 5. DNA (BAR)
+    const ctxDNA = document.getElementById('chartDNA');
+    if (ctxDNA) {
+        const dnaData = [
+            USER_MOCK.stats.csMin - KR_BENCHMARK.avgCsMin,
+            (USER_MOCK.stats.gold14 - KR_BENCHMARK.goldAt14)/100,
+            (USER_MOCK.stats.dpm - KR_BENCHMARK.avgDpm)/50,
+            USER_MOCK.stats.visMin - KR_BENCHMARK.avgVisionScore,
+            USER_MOCK.stats.objPart - KR_BENCHMARK.objParticipation
+        ];
+        new Chart(ctxDNA, {
+            type: 'bar',
+            data: {
+                labels: ['CS', 'Gold', 'Dano', 'Visão', 'Obj'],
+                datasets: [{ data: dnaData, backgroundColor: c => c.raw >= 0 ? THEME.gold : THEME.red, borderRadius: 4 }]
+            },
+            options: {
+                indexAxis: 'y', maintainAspectRatio: false,
+                scales: { x: { grid: { color: c=>c.tick.value===0?'#fff':'transparent' }, ticks: {display: false} }, y: { grid: {display: false} } },
+                plugins: { legend: {display: false} }
+            }
+        });
+    }
+
+    // 6. POWER SPIKE (LINE)
+    const ctxPower = document.getElementById('chartPowerSpike');
+    if (ctxPower) {
+        new Chart(ctxPower, {
+            type: 'line',
+            data: {
+                labels: ['5 min', '11 min', '14 min', '20 min'],
+                datasets: [
+                    { label: 'KR Ritmo', data: KR_BENCHMARK.powerCurve, borderColor: '#fff', borderDash: [5, 5], tension: 0.4 },
+                    { label: 'Você', data: USER_MOCK.powerCurve, borderColor: THEME.blue, backgroundColor: colorBlueAlpha, fill: true, tension: 0.4 }
+                ]
+            },
+            options: { maintainAspectRatio: false, scales: { y: { title: {display: true, text: 'Gold Diff Acumulado'} } }, plugins: { legend: {display: false} } }
+        });
+    }
+}
+
 init();
