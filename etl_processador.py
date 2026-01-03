@@ -52,17 +52,23 @@ def calcular_probabilidade_xp(df):
     """Calcula a curva de probabilidade de vitória por XP Diff."""
     print("📈 Calculando Curva de Probabilidade...")
     
+    # Arredonda para buckets de 500 em 500
     df['xp_bucket'] = (df["XP Diff 12'"] / 500).round() * 500
     
+    # Agrupa e conta
     agrupado = df.groupby('xp_bucket').agg(
-        total=('Match ID', 'count'),
+        total_games=('Match ID', 'count'), # <--- MUDANÇA AQUI: de 'total' para 'total_games'
         wins=('Win Rate %', 'sum')
     ).reset_index()
     
-    agrupado['win_rate'] = (agrupado['wins'] / agrupado['total']) * 100
-    agrupado = agrupado[agrupado['total'] > 5] # Filtra outliers com poucos jogos
+    # Calcula % de vitória
+    agrupado['win_rate'] = (agrupado['wins'] / agrupado['total_games']) * 100
     
-    return agrupado[['xp_bucket', 'win_rate', 'total']]
+    # Filtra amostras muito pequenas
+    agrupado = agrupado[agrupado['total_games'] > 5] 
+    
+    # Retorna com as colunas certas para o banco
+    return agrupado[['xp_bucket', 'win_rate', 'total_games']]
 
 def calcular_regressoes(df):
     """Calcula R², Inclinação e Intercepto para os 6 gráficos relacionais."""
