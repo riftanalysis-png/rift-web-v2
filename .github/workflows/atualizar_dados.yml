@@ -1,0 +1,29 @@
+name: Atualizar Estatísticas (ETL)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Roda a cada 6 horas
+  workflow_dispatch:      # Permite rodar manualmente clicando num botão
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v3
+
+      - name: Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Instalar bibliotecas
+        run: |
+          pip install -r requirements.txt
+
+      - name: Rodar Processador ETL
+        env:
+          DB_URL: ${{ secrets.DB_URL }}  # Pega a senha que configuramos
+        run: |
+          python etl_processador.py
